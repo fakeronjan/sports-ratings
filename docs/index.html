@@ -630,6 +630,28 @@ SECTIONS.forEach((sec, si) => {
     }
   });
 });
+
+// Auto-resize: when embedded in an iframe, post our current scroll height
+// to the parent so the iframe can size itself with no internal scroll.
+// The Squarespace-side listener is in the embed snippet; see README.
+(function() {
+  if (window.parent === window) return;  // not embedded
+  function postHeight() {
+    parent.postMessage({
+      type: 'fakeronjan-resize',
+      height: document.documentElement.scrollHeight,
+    }, '*');
+  }
+  window.addEventListener('load', postHeight);
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(postHeight).observe(document.body);
+  } else {
+    // Older-browser fallback: poll for content settling after card hydration.
+    setTimeout(postHeight, 500);
+    setTimeout(postHeight, 1500);
+    setTimeout(postHeight, 3000);
+  }
+})();
 </script>
 </body>
 </html>
