@@ -13,7 +13,9 @@
     color: #1a1a1a;
     font-size: 14px;
     line-height: 1.5;
-    min-height: 100vh;
+    /* No min-height:100vh — would feedback-loop with the iframe auto-resize
+       (100vh inside an iframe = iframe height; taller iframe → taller body
+       → posts taller → grows forever). */
   }
 
   header {
