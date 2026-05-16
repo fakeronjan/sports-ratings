@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fakeronjan Sports Ratings</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f8f8f6;
+    color: #1a1a1a;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #1a6b8a;
+    color: #fff;
+    padding: 24px 24px 20px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ff6eb4;
+  }
+  header p.subtitle {
+    font-size: 12px;
+    color: rgba(255,255,255,0.75);
+    margin-top: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  header p.tagline {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    margin-top: 10px;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+  }
+
+  section.sport-row { margin-bottom: 24px; }
+  section.sport-row h2 {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2.5px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e2e2;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid #eee;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    border-color: #1a6b8a;
+  }
+
+  .card-head {
+    background: #1a6b8a;
+    color: #ff6eb4;
+    padding: 11px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    flex: 1;
+  }
+  .card-arrow {
+    color: rgba(255,255,255,0.6);
+    font-size: 16px;
+    transition: color 0.15s, transform 0.15s;
+  }
+  .card:hover .card-arrow { color: #ff6eb4; transform: translateX(2px); }
+
+  .card-body {
+    padding: 12px 14px 8px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-section-label {
+    font-size: 9px;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  table.top5 {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: fixed;
+  }
+  table.top5 thead th,
+  table.top5 tbody td {
+    text-align: center;
+    padding: 5px 4px;
+    vertical-align: middle;
+  }
+  table.top5 thead th {
+    font-size: 9px;
+    color: #aaa;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding-top: 0;
+    border-bottom: 1px solid #eee;
+  }
+  table.top5 tbody td { border-bottom: 1px solid #f5f5f5; }
+  table.top5 tbody tr:last-child td { border-bottom: none; }
+
+  td.rank, th.col-rank {
+    width: 22px;
+    color: #888;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  table.top5 td.name, table.top5 th.col-name {
+    text-align: left;
+    font-weight: 600;
+    color: #1a1a1a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 1px; /* tells browser to honor ellipsis inside fixed table */
+  }
+  td.num, th.col-num {
+    font-variant-numeric: tabular-nums;
+    width: 44px;
+  }
+  td.record, th.col-record {
+    color: #555;
+    font-variant-numeric: tabular-nums;
+    width: 60px;
+    font-size: 11px;
+  }
+  table.top5 td.last, table.top5 th.col-last {
+    text-align: left;
+    color: #555;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 1px; /* takes remainder under fixed layout */
+  }
+  td.rating, th.col-rating {
+    color: #1a6b8a;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    width: 50px;
+  }
+
+  .badge-inline {
+    font-size: 9.5px;
+    margin-left: 4px;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: 1px;
+  }
+
+  .b-champion { background: #fffdf3; color: #b8860b; padding: 0 4px; border-radius: 3px; border: 1px solid #f0e0a0; font-weight: 700; }
+  .b-runner   { background: #f5f5f5; color: #555;    padding: 0 4px; border-radius: 3px; border: 1px solid #ddd; font-weight: 700; }
+  .b-treble, .b-double { background: #1a6b8a; color: #ff6eb4; padding: 0 4px; border-radius: 3px; font-weight: 800; }
+  .b-shield   { background: #eef5fb; color: #1a6b8a; padding: 0 4px; border-radius: 3px; border: 1px solid #cfdfe9; font-weight: 700; }
+  .b-bronze   { background: #fbf3eb; color: #8a5a1a; padding: 0 4px; border-radius: 3px; border: 1px solid #e9d8c2; font-weight: 700; }
+  .b-appearance { background: #f3f3f3; color: #777; padding: 0 4px; border-radius: 3px; border: 1px solid #e0e0e0; font-weight: 600; }
+  .b-plain    { color: #555; font-weight: 700; }
+
+  .card-foot {
+    padding: 6px 14px 10px;
+    font-size: 11px;
+    color: #888;
+    border-top: 1px dashed #eee;
+    margin-top: auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-loading, .card-error { color: #aaa; font-style: italic; font-size: 12px; padding: 8px 0; }
+  .card-error { color: #c62828; }
+
+  footer {
+    text-align: center;
+    padding: 18px;
+    font-size: 11px;
+    color: #888;
+    border-top: 1px solid #eee;
+    background: #fff;
+    margin-top: 24px;
+  }
+  footer a { color: #1a6b8a; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FAKERONJAN &#x1F4CA;</h1>
+  <p class="subtitle">Sports Ratings &amp; Stats</p>
+  <p class="tagline">Independent power rankings across nine sites covering basketball, football, soccer, tennis, and reality competition. Each site is its own model, refreshed on its own cadence.</p>
+</header>
+
+<main id="main"></main>
+
+<footer>
+  Models + sites built by <a href="https://github.com/fakeronjan" target="_blank">fakeronjan</a>. Open source on GitHub.
+</footer>
+
+<script>
+const GH = 'https://fakeronjan.github.io';
+const SQ = 'https://fakeronjan.com';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-site badge functions — copied verbatim from each site's finishBadge so
+// labels, emojis, AND tooltips match the source site exactly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function badgeDUNCAN(t) {
+  const bits = [];
+  if (t.finals_status === 2) bits.push(`<span class="badge-inline" title="NBA Champion">👑</span>`);
+  else if (t.finals_status === 1) bits.push(`<span class="badge-inline" title="NBA Runner-Up">🥈</span>`);
+  if (t.cup_status === 2) bits.push(`<span class="badge-inline b-champion" title="NBA Cup Champion">Cup 🏆</span>`);
+  else if (t.cup_status === 1) bits.push(`<span class="badge-inline b-runner" title="NBA Cup Runner-Up">Cup 🥈</span>`);
+  return bits.join('');
+}
+
+function badgeLOBO(t) {
+  const bits = [];
+  if (t.finals_status === 2) bits.push(`<span class="badge-inline" title="WNBA Champion">👑</span>`);
+  else if (t.finals_status === 1) bits.push(`<span class="badge-inline" title="WNBA Runner-Up">🥈</span>`);
+  if (t.cup_status === 2) bits.push(`<span class="badge-inline b-champion" title="Commissioner's Cup Champion">Cup 🏆</span>`);
+  else if (t.cup_status === 1) bits.push(`<span class="badge-inline b-runner" title="Commissioner's Cup Runner-Up">Cup 🥈</span>`);
+  return bits.join('');
+}
+
+function badgeDILLON(t) {
+  if (t.sb_status === 2) return `<span class="badge-inline" title="Super Bowl Champion">👑</span>`;
+  if (t.sb_status === 1) return `<span class="badge-inline" title="Super Bowl Runner-Up">🥈</span>`;
+  return '';
+}
+
+// SALAAM (NCAA football) — source has no title attrs; add descriptive ones
+// here so hover-over works in the dashboard (user-requested).
+function badgeSALAAM(t) {
+  if (t.cfp_status === 2) {
+    const label = (t.selectors && t.selectors.length) ? t.selectors.join('+') : (t.era || 'CFP');
+    return `<span class="badge-inline b-champion" title="National Champion">${label} 👑</span>`;
+  }
+  if (t.cfp_status === 1)     return `<span class="badge-inline b-runner" title="CFP Runner-Up">${t.era || 'CFP'} 🥈</span>`;
+  if (t.cfp_appearance === 1) return `<span class="badge-inline b-appearance" title="CFP Appearance">CFP App.</span>`;
+  return '';
+}
+
+const ZIDANE_CUP_SHORT = {
+  'EPL':        'FA Cup',
+  'La Liga':    'Copa del Rey',
+  'Bundesliga': 'DFB-Pokal',
+  'Serie A':    'Coppa Italia',
+};
+function badgeZIDANE(t) {
+  const dom = t.domestic_finish, cl = t.cl_finish, el = t.el_finish;
+  const cup = t.domestic_cup_finish || '';
+  const cupLabel = ZIDANE_CUP_SHORT[t.league] || 'Cup';
+  const bits = [];
+  if (dom === 'Champion' && cl === 'Champion' && cup === 'Champion') {
+    bits.push(`<span class="badge-inline b-treble">TREBLE 👑</span>`);
+  }
+  if (cl === 'Champion')   bits.push(`<span class="badge-inline b-champion">CL 🏆</span>`);
+  if (cl === 'Runner-Up')  bits.push(`<span class="badge-inline b-runner">CL 🥈</span>`);
+  if (el === 'Champion')   bits.push(`<span class="badge-inline b-champion">EL 🏆</span>`);
+  if (el === 'Runner-Up')  bits.push(`<span class="badge-inline b-runner">EL 🥈</span>`);
+  if (cup === 'Champion')  bits.push(`<span class="badge-inline b-champion">${cupLabel} 🏆</span>`);
+  if (cup === 'Runner-Up') bits.push(`<span class="badge-inline b-runner">${cupLabel} 🥈</span>`);
+  return bits.join('');
+}
+
+function badgeCOBI(t) {
+  const cup = t.mls_cup_finish, shield = t.supporters_shield_finish;
+  const bits = [];
+  if (cup === 'Champion' && shield === 'Champion') {
+    bits.push(`<span class="badge-inline b-double">DOUBLE 👑</span>`);
+  }
+  if (cup === 'Champion')          bits.push(`<span class="badge-inline b-champion">MLS Cup 🏆</span>`);
+  else if (cup === 'Runner-Up')    bits.push(`<span class="badge-inline b-runner">MLS Cup 🥈</span>`);
+  if (shield === 'Champion')       bits.push(`<span class="badge-inline b-shield">Shield 🛡️</span>`);
+  else if (shield === 'Runner-Up') bits.push(`<span class="badge-inline b-runner">Shield 🥈</span>`);
+  return bits.join('');
+}
+
+function badgeMESSI(t) {
+  const fs = t.tournament_finishes;
+  if (!fs || !fs.length) return '';
+  return fs.map(x => {
+    const cls = x.finish === 1 ? 'b-champion' : x.finish === 2 ? 'b-runner' : 'b-bronze';
+    const medal = x.finish === 1
+      ? (x.tournament === 'WC' ? '👑' : '🏆')
+      : x.finish === 2 ? '🥈' : '🥉';
+    return `<span class="badge-inline ${cls}">${x.tournament} ${medal}</span>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Loaders
+// Each returns: {columns: [labels], rows: [{rank, cells: [str|html, ...]}], updated}
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchJson(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Sites whose current_standings.json doesn't carry regular_record /
+// playoff_record (they only ship combined `record`). For these we pull the
+// last snapshot from the per-season detail JSON so we can split Reg vs
+// Playoffs. ZIDANE/MESSI don't have a playoff concept — they use combined
+// or no record at all. COBI already has the split in current_standings.
+const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam']);
+
+// Per-site season-label formatter: each site's seasons_index.json gives a
+// season identifier (year or "YYYY-YY"), but the display string depends on
+// how each sport names its season. NBA/Euro soccer span two calendar years
+// and use "YYYY-YY"; everyone else is single-year.
+const SEASON_FMT = {
+  duncan: s => `${s - 1}-${String(s).slice(-2)} season`,   // 2026 → "2025-26 season"
+  lobo:   s => `${s} season`,                              // single-year
+  dillon: s => `${s} season`,                              // NFL uses start-year only (matches DILLON)
+  salaam: s => `${s} season`,                              // CFB is single-year
+  zidane: s => `${s} season`,                              // already "YYYY-YY"
+  cobi:   s => `${s} season`,                              // MLS = calendar year
+  messi:  s => `${s} season`,                              // year of latest competition
+};
+
+// Has the record actually got games in it? Empty / dashes / "0-0" => no.
+function hasGames(rec) {
+  if (!rec) return false;
+  const m = String(rec).match(/^\s*(\d+)\s*-\s*(\d+)/);
+  if (!m) return false;
+  return (parseInt(m[1]) + parseInt(m[2])) > 0;
+}
+
+// Compact last-match string: drop the trailing "(Competition)" and "vs."/"@"
+// markers stay so the home/away cue survives.
+function fmtLast(raw) {
+  if (!raw) return '';
+  return String(raw)
+    .replace(/\s*\([^)]*\)\s*$/, '')   // strip trailing "(Friendly)" etc.
+    .replace(/\bvs\.\s*/, 'vs ');
+}
+
+async function loadWLS(repo, badgeFn, opts) {
+  opts = opts || {};
+  let teams, updated, latestSeason;
+  // seasons_index gives us the season identifier for the section label
+  const idxPromise = fetchJson(`${GH}/${repo}/data/seasons_index.json`).catch(() => null);
+
+  if (PLAYOFF_SPORTS.has(repo)) {
+    // Pull season detail so we get regular_record + playoff_record split.
+    const idx = await idxPromise;
+    latestSeason = idx && idx.seasons ? idx.seasons[0] : null;
+    const detail = await fetchJson(`${GH}/${repo}/data/seasons/${latestSeason}.json`);
+    const snap = detail.snapshots[detail.snapshots.length - 1];
+    teams = snap.teams;
+    updated = (snap.date || '').slice(0, 10);
+  } else {
+    const [d, idx] = await Promise.all([
+      fetchJson(`${GH}/${repo}/data/current_standings.json`),
+      idxPromise,
+    ]);
+    teams = d.teams;
+    updated = d.updated;
+    latestSeason = idx && idx.seasons ? idx.seasons[0] : null;
+  }
+  const seasonName = (SEASON_FMT[repo] && latestSeason != null)
+    ? SEASON_FMT[repo](latestSeason)
+    : null;
+  const top5 = teams.slice().sort((a, b) => a.rank - b.rank).slice(0, 5);
+
+  const showPlayoffs = top5.some(t => hasGames(t.playoff_record));
+  const showRecord = top5.some(t => t.regular_record || t.record);
+  const showLast = !!opts.showLast;
+
+  const columns = [{ label: 'Team', cls: 'name' }];
+  if (showRecord) columns.push({ label: 'Record', cls: 'record' });
+  if (showPlayoffs) columns.push({ label: 'Playoffs', cls: 'record' });
+  if (showLast) columns.push({ label: 'Last', cls: 'last' });
+  columns.push({ label: 'Rating', cls: 'rating' });
+
+  return {
+    columns,
+    rows: top5.map(t => {
+      const baseName = escapeHtml(t.display_name || t.team);
+      const flag = t.flag ? `${t.flag} ` : '';
+      const name = flag + baseName;
+      const cells = [name + badgeFn(t)];
+      if (showRecord) {
+        const reg = t.regular_record || t.record || '';
+        cells.push(escapeHtml(String(reg).replace(/\s*-\s*/g, '-')));
+      }
+      if (showPlayoffs) {
+        cells.push(hasGames(t.playoff_record) ? escapeHtml(t.playoff_record) : '-');
+      }
+      if (showLast) {
+        cells.push(escapeHtml(fmtLast(t.last_match)));
+      }
+      cells.push(t.rating.toFixed(2));
+      return { rank: t.rank, cells };
+    }),
+    updated,
+    seasonName,
+  };
+}
+
+const TENNIS_COLS = [
+  { label: 'Player', cls: 'name' },
+  { label: '🇦🇺', cls: 'num' },
+  { label: '🇫🇷', cls: 'num' },
+  { label: '🇬🇧', cls: 'num' },
+  { label: '🇺🇸', cls: 'num' },
+  { label: 'Total', cls: 'rating' },
+];
+
+// Hardcoded GOAT data with per-major breakdown + country flag
+const TENNIS_GOAT = {
+  M: [
+    { name: 'Novak Djokovic', flag: '🇷🇸', ao: 10, fo: 3,  wim: 7, us: 4, total: 24 },
+    { name: 'Rafael Nadal',   flag: '🇪🇸', ao: 2,  fo: 14, wim: 2, us: 4, total: 22 },
+    { name: 'Roger Federer',  flag: '🇨🇭', ao: 6,  fo: 1,  wim: 8, us: 5, total: 20 },
+    { name: 'Pete Sampras',   flag: '🇺🇸', ao: 2,  fo: 0,  wim: 7, us: 5, total: 14 },
+    { name: 'Björn Borg',     flag: '🇸🇪', ao: 0,  fo: 6,  wim: 5, us: 0, total: 11 },
+  ],
+  W: [
+    { name: 'Serena Williams',     flag: '🇺🇸', ao: 7, fo: 3, wim: 7, us: 6, total: 23 },
+    { name: 'Steffi Graf',         flag: '🇩🇪', ao: 4, fo: 6, wim: 7, us: 5, total: 22 },
+    { name: 'Chris Evert',         flag: '🇺🇸', ao: 2, fo: 7, wim: 3, us: 6, total: 18 },
+    { name: 'Martina Navratilova', flag: '🇺🇸', ao: 3, fo: 2, wim: 9, us: 4, total: 18 },
+    { name: 'Margaret Court',      flag: '🇦🇺', ao: 4, fo: 3, wim: 1, us: 3, total: 11 },
+  ],
+};
+
+function loadTennisGoat(gender) {
+  return Promise.resolve({
+    columns: TENNIS_COLS,
+    rows: TENNIS_GOAT[gender].map((p, i) => ({
+      rank: i + 1,
+      cells: [`${p.flag} ${escapeHtml(p.name)}`, p.ao, p.fo, p.wim, p.us, p.total],
+    })),
+    updated: 'Open Era Grand Slams',
+  });
+}
+
+// Widths chosen so the 3 middle cols sum to 176px (same as TENNIS's
+// 4×44 num cols) — keeps the Player column the same width as Tennis's.
+const LAVIN_COLS = [
+  { label: 'Player',   cls: 'name' },
+  { label: 'Sn',       cls: 'num',    width: 32 },
+  { label: 'Finals',   cls: 'num',    width: 60 },
+  { label: 'Champs',   cls: 'num',    width: 84 },
+  { label: 'Rating',   cls: 'rating' },
+];
+
+function loadLAVINGoat(gender) {
+  return fetchJson(`${GH}/lavin/data/goat_players.json`).then(d => ({
+    columns: LAVIN_COLS,
+    rows: d[gender].slice(0, 5).map(p => ({
+      rank: p.rank,
+      cells: [
+        escapeHtml(p.player),
+        p.n_seasons,
+        p.finals_reached,
+        p.championships > 0 ? `${p.championships} 🥇` : (p.championships || 0),
+        p.era_rating.toFixed(1),
+      ],
+    })),
+    updated: 'All-time ERA rating',
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sections
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SECTIONS = [
+  {
+    label: 'Basketball',
+    cards: [
+      { slug: 'nba',  title: 'NBA: DUNCAN ♂️🏀',   sectionLabel: 'Current Top 5', load: () => loadWLS('duncan', badgeDUNCAN) },
+      { slug: 'wnba', title: 'WNBA: LOBO ♀️🏀',    sectionLabel: 'Current Top 5', load: () => loadWLS('lobo',   badgeLOBO) },
+    ],
+  },
+  {
+    label: 'Football',
+    cards: [
+      { slug: 'nfl',    title: 'NFL: DILLON 🏈',           sectionLabel: 'Current Top 5', load: () => loadWLS('dillon', badgeDILLON) },
+      { slug: 'ncaafb', title: 'NCAA: SALAAM 🎓🏈',        sectionLabel: 'Current Top 5', load: () => loadWLS('salaam', badgeSALAAM) },
+    ],
+  },
+  {
+    label: 'Soccer',
+    cards: [
+      { slug: 'eurosoccer', title: 'Euro: ZIDANE 🇪🇺⚽',  sectionLabel: 'Current Top 5', load: () => loadWLS('zidane', badgeZIDANE) },
+      { slug: 'mls',        title: 'MLS: COBI 🇺🇸⚽',      sectionLabel: 'Current Top 5', load: () => loadWLS('cobi',   badgeCOBI) },
+      { slug: 'intlsoccer', title: 'Intl: MESSI 🌍⚽',     sectionLabel: 'Current Top 5', load: () => loadWLS('messi',  badgeMESSI, { showLast: true }) },
+    ],
+  },
+  {
+    label: 'Tennis',
+    cards: [
+      { slug: 'tennis', title: "Men's Tennis 🎾",   sectionLabel: 'GOAT Top 5', load: () => loadTennisGoat('M') },
+      { slug: 'tennis', title: "Women's Tennis 🎾", sectionLabel: 'GOAT Top 5', load: () => loadTennisGoat('W') },
+    ],
+  },
+  {
+    label: 'The Challenge',
+    cards: [
+      { slug: 'thechallenge', title: "Men's Challenge: LAVIN 💪🤫🍷",   sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('M') },
+      { slug: 'thechallenge', title: "Women's Challenge: LAVIN 💪🤫🍷", sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('F') },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderCard(card, payload, error) {
+  let body;
+  if (error) {
+    body = `<div class="card-error">Data unavailable</div>`;
+  } else if (payload) {
+    const headers = `<thead><tr>
+      <th class="col-rank"></th>
+      ${payload.columns.map(c => {
+        const style = c.width ? ` style="width:${c.width}px"` : '';
+        return `<th class="col-${c.cls}"${style}>${escapeHtml(c.label)}</th>`;
+      }).join('')}
+    </tr></thead>`;
+    const rows = payload.rows.map(r => `<tr>
+      <td class="rank">${r.rank}</td>
+      ${r.cells.map((cell, i) => `<td class="${payload.columns[i].cls}">${cell}</td>`).join('')}
+    </tr>`).join('');
+    const label = payload.seasonName
+      ? `${card.sectionLabel}: ${payload.seasonName}`
+      : card.sectionLabel;
+    body = `
+      <div class="card-section-label">${escapeHtml(label)}</div>
+      <table class="top5">${headers}<tbody>${rows}</tbody></table>
+    `;
+  } else {
+    body = `<div class="card-loading">Loading…</div>`;
+  }
+  const foot = payload && !error
+    ? `<div class="card-foot">${escapeHtml(payload.updated || '')}</div>`
+    : '';
+  return `
+    <a class="card" href="${SQ}/${card.slug}" target="_top">
+      <div class="card-head">
+        <span class="card-title">${card.title}</span>
+        <span class="card-arrow">→</span>
+      </div>
+      <div class="card-body">
+        ${body}
+      </div>
+      ${foot}
+    </a>`;
+}
+
+const main = document.getElementById('main');
+main.innerHTML = SECTIONS.map(sec => `
+  <section class="sport-row">
+    <h2>${sec.label}</h2>
+    <div class="grid">
+      ${sec.cards.map(c => renderCard(c)).join('')}
+    </div>
+  </section>
+`).join('');
+
+SECTIONS.forEach((sec, si) => {
+  sec.cards.forEach(async (card, ci) => {
+    const sectionEl = main.querySelectorAll('section.sport-row')[si];
+    const cards = sectionEl.querySelectorAll('.card');
+    try {
+      const payload = await card.load();
+      cards[ci].outerHTML = renderCard(card, payload);
+    } catch (e) {
+      cards[ci].outerHTML = renderCard(card, null, e);
+    }
+  });
+});
+</script>
+</body>
+</html>
