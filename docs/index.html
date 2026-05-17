@@ -403,6 +403,11 @@ function escapeHtml(s) {
 // or no record at all. COBI already has the split in current_standings.
 const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam']);
 
+// Soccer sites: record is W-D-L, points (3/1/0) get their own column, and
+// playoff standings are intentionally not shown — knockout outcomes are
+// surfaced as badges (CL/EL/cup/MLS Cup/Shield) instead.
+const SOCCER_SPORTS = new Set(['zidane', 'messi', 'cobi']);
+
 // Per-site season-label formatter: each site's seasons_index.json gives a
 // season identifier (year or "YYYY-YY"), but the display string depends on
 // how each sport names its season. NBA/Euro soccer span two calendar years
@@ -462,12 +467,15 @@ async function loadWLS(repo, badgeFn, opts) {
     : null;
   const top5 = teams.slice().sort((a, b) => a.rank - b.rank).slice(0, 5);
 
-  const showPlayoffs = top5.some(t => hasGames(t.playoff_record));
+  const isSoccer = SOCCER_SPORTS.has(repo);
+  const showPlayoffs = !isSoccer && top5.some(t => hasGames(t.playoff_record));
   const showRecord = top5.some(t => t.regular_record || t.record);
   const showLast = !!opts.showLast;
+  const recordLabel = isSoccer ? 'W-D-L' : 'W-L';
 
   const columns = [{ label: 'Team', cls: 'name' }];
-  if (showRecord) columns.push({ label: 'Record', cls: 'record' });
+  if (showRecord) columns.push({ label: recordLabel, cls: 'record' });
+  if (isSoccer && showRecord) columns.push({ label: 'Pts', cls: 'num' });
   if (showPlayoffs) columns.push({ label: 'Playoffs', cls: 'record' });
   if (showLast) columns.push({ label: 'Last', cls: 'last' });
   columns.push({ label: 'Rating', cls: 'rating' });
@@ -482,6 +490,11 @@ async function loadWLS(repo, badgeFn, opts) {
       if (showRecord) {
         const reg = t.regular_record || t.record || '';
         cells.push(escapeHtml(String(reg).replace(/\s*-\s*/g, '-')));
+      }
+      if (isSoccer && showRecord) {
+        const reg = t.regular_record || t.record || '';
+        const m = String(reg).match(/^\s*(\d+)\s*-\s*(\d+)\s*-\s*(\d+)/);
+        cells.push(m ? (parseInt(m[1]) * 3 + parseInt(m[2])) : '-');
       }
       if (showPlayoffs) {
         cells.push(hasGames(t.playoff_record) ? escapeHtml(t.playoff_record) : '-');
