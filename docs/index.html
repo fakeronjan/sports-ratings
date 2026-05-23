@@ -106,6 +106,13 @@
     letter-spacing: 1.5px;
     flex: 1;
   }
+  .card-stage {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
   .card-arrow {
     color: rgba(255,255,255,0.6);
     font-size: 16px;
@@ -591,15 +598,15 @@ const SECTIONS = [
     label: 'Football',
     cards: [
       { slug: 'nfl',    title: 'NFL: DILLON 🏈',           sectionLabel: 'Current Top 5', load: () => loadWLS('dillon', badgeDILLON) },
-      { slug: 'ncaafb', title: 'NCAA: SALAAM 🎓🏈',        sectionLabel: 'Current Top 5', load: () => loadWLS('salaam', badgeSALAAM) },
+      { slug: 'ncaafb', title: 'NCAA: SALAAM 🎓🏈',        stage: 'Beta', sectionLabel: 'Current Top 5', load: () => loadWLS('salaam', badgeSALAAM) },
     ],
   },
   {
     label: 'Soccer',
     cards: [
-      { slug: 'eurosoccer', title: 'Euro: ZIDANE 🇪🇺⚽',  sectionLabel: 'Current Top 5', load: () => loadWLS('zidane', badgeZIDANE) },
-      { slug: 'mls',        title: 'MLS: COBI 🇺🇸⚽',      sectionLabel: 'Current Top 5', load: () => loadWLS('cobi',   badgeCOBI) },
-      { slug: 'intlsoccer', title: 'Intl: MESSI 🌍⚽',     sectionLabel: 'Current Top 5', load: () => loadWLS('messi',  badgeMESSI, { showLast: true }) },
+      { slug: 'eurosoccer', title: 'Euro: ZIDANE 🇪🇺⚽',  stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('zidane', badgeZIDANE) },
+      { slug: 'mls',        title: 'MLS: COBI 🇺🇸⚽',      stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('cobi',   badgeCOBI) },
+      { slug: 'intlsoccer', title: 'Intl: MESSI 🌍⚽',     stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('messi',  badgeMESSI, { showLast: true }) },
     ],
   },
   {
@@ -612,8 +619,8 @@ const SECTIONS = [
   {
     label: 'The Challenge',
     cards: [
-      { slug: 'thechallenge', title: "Men's Challenge: LAVIN 💪🤫🍷",   sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('M') },
-      { slug: 'thechallenge', title: "Women's Challenge: LAVIN 💪🤫🍷", sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('F') },
+      { slug: 'thechallenge', title: "Men's Challenge: LAVIN 💪🤫🍷",   stage: 'Beta', sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('M') },
+      { slug: 'thechallenge', title: "Women's Challenge: LAVIN 💪🤫🍷", stage: 'Beta', sectionLabel: 'GOAT Top 5', load: () => loadLAVINGoat('F') },
     ],
   },
 ];
@@ -655,6 +662,7 @@ function renderCard(card, payload, error) {
     <a class="card" href="${SQ}/${card.slug}" target="_top">
       <div class="card-head">
         <span class="card-title">${card.title}</span>
+        ${card.stage ? `<span class="card-stage">${card.stage}</span>` : ''}
         <span class="card-arrow">→</span>
       </div>
       <div class="card-body">
