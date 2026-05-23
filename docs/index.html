@@ -675,8 +675,7 @@ function renderCard(card, payload, error) {
   return `
     <a class="card" href="${SQ}/${card.slug}" target="_top">
       <div class="card-head">
-        <span class="card-title">${card.title}</span>
-        ${card.stage ? `<span class="card-stage">(${card.stage})</span>` : ''}
+        <span class="card-title">${card.title}${card.stage ? ` <span class="card-stage">· ${card.stage}</span>` : ''}</span>
         <span class="card-arrow">→</span>
       </div>
       <div class="card-body">
