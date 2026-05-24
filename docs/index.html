@@ -183,6 +183,7 @@
     font-variant-numeric: tabular-nums;
     width: 60px;
     font-size: 11px;
+    white-space: nowrap;
   }
   table.top5 td.last, table.top5 th.col-last {
     text-align: left;
@@ -428,6 +429,7 @@ const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam', 'griffey',
 // playoff standings are intentionally not shown — knockout outcomes are
 // surfaced as badges (CL/EL/cup/MLS Cup/Shield) instead.
 const SOCCER_SPORTS = new Set(['zidane', 'messi', 'cobi']);
+const HOCKEY_SPORTS = new Set(['sakic']);
 
 // Per-site season-label formatter: each site's seasons_index.json gives a
 // season identifier (year or "YYYY-YY"), but the display string depends on
@@ -491,13 +493,16 @@ async function loadWLS(repo, badgeFn, opts) {
   const top5 = teams.slice().sort((a, b) => a.rank - b.rank).slice(0, 5);
 
   const isSoccer = SOCCER_SPORTS.has(repo);
+  const isHockey = HOCKEY_SPORTS.has(repo);
   const showPlayoffs = !isSoccer && top5.some(t => hasGames(t.playoff_record));
   const showRecord = top5.some(t => t.regular_record || t.record);
   const showLast = !!opts.showLast;
-  const recordLabel = isSoccer ? 'W-D-L' : 'W-L';
+  const recordLabel = isSoccer ? 'W-D-L' : (isHockey ? 'W-L-OTL' : 'W-L');
+  // Three-component records (W-D-L / W-L-OTL) need a wider column than W-L.
+  const recordWidth = (isSoccer || isHockey) ? 70 : null;
 
   const columns = [{ label: 'Team', cls: 'name' }];
-  if (showRecord) columns.push({ label: recordLabel, cls: 'record' });
+  if (showRecord) columns.push({ label: recordLabel, cls: 'record', width: recordWidth });
   if (isSoccer && showRecord) columns.push({ label: 'Pts', cls: 'num' });
   if (showPlayoffs) columns.push({ label: 'Playoffs', cls: 'record' });
   if (showLast) columns.push({ label: 'Last', cls: 'last' });
