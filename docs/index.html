@@ -279,6 +279,7 @@
   <a href="https://fakeronjan.com/mls" target="_top">⚽ MLS</a>
   <a href="https://fakeronjan.com/intlsoccer" target="_top">⚽ Intl</a>
   <a href="https://fakeronjan.com/mlb" target="_top">⚾ MLB</a>
+  <a href="https://fakeronjan.com/nhl" target="_top">🏒 NHL</a>
   <a href="https://fakeronjan.com/tennis" target="_top">🎾 Tennis</a>
   <a href="https://fakeronjan.com/thechallenge" target="_top">📺 Challenge</a>
 </nav>
@@ -287,7 +288,7 @@
 <header>
   <h1>FAKERONJAN &#x1F4CA;</h1>
   <p class="subtitle">Sports Ratings &amp; Stats</p>
-  <p class="tagline">Hobbyist power rankings across basketball, football, soccer, and baseball that produce ratings that represent points / goals / runs vs. league average. Each sport has a full site with historical and GOAT ratings. Other adds include a similar model for the reality show The Challenge as well as a visualization of tennis Grand Slam championships.</p>
+  <p class="tagline">Hobbyist power rankings across basketball, football, soccer, baseball, and hockey that produce ratings that represent points / goals / runs vs. league average. Each sport has a full site with historical and GOAT ratings. Other adds include a similar model for the reality show The Challenge as well as a visualization of tennis Grand Slam championships.</p>
 </header>
 
 <main id="main"></main>
@@ -332,6 +333,12 @@ function badgeDILLON(t) {
 function badgeGRIFFEY(t) {
   if (t.finals_status === 2) return `<span class="badge-inline" title="World Series Champion">👑</span>`;
   if (t.finals_status === 1) return `<span class="badge-inline" title="World Series Runner-Up">🥈</span>`;
+  return '';
+}
+
+function badgeSAKIC(t) {
+  if (t.finals_status === 2) return `<span class="badge-inline" title="Stanley Cup Champion">👑</span>`;
+  if (t.finals_status === 1) return `<span class="badge-inline" title="Stanley Cup Runner-Up">🥈</span>`;
   return '';
 }
 
@@ -415,7 +422,7 @@ function escapeHtml(s) {
 // last snapshot from the per-season detail JSON so we can split Reg vs
 // Playoffs. ZIDANE/MESSI don't have a playoff concept — they use combined
 // or no record at all. COBI already has the split in current_standings.
-const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam', 'griffey']);
+const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam', 'griffey', 'sakic']);
 
 // Soccer sites: record is W-D-L, points (3/1/0) get their own column, and
 // playoff standings are intentionally not shown — knockout outcomes are
@@ -435,6 +442,7 @@ const SEASON_FMT = {
   cobi:   s => `${s} season`,                              // MLS = calendar year
   messi:  s => `${s} season`,                              // year of latest competition
   griffey: s => `${s} season`,                             // MLB = calendar year
+  sakic:  s => `${s - 1}-${String(s).slice(-2)} season`,   // NHL spans two calendar years
 };
 
 // Has the record actually got games in it? Empty / dashes / "0-0" => no.
@@ -621,6 +629,12 @@ const SECTIONS = [
     label: 'Baseball',
     cards: [
       { slug: 'mlb', title: 'MLB: GRIFFEY ⚾', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('griffey', badgeGRIFFEY) },
+    ],
+  },
+  {
+    label: 'Hockey',
+    cards: [
+      { slug: 'nhl', title: 'NHL: SAKIC 🥅🏒', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('sakic', badgeSAKIC) },
     ],
   },
   {
