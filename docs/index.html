@@ -533,7 +533,7 @@ async function loadWLS(repo, badgeFn, opts) {
       cells.push(t.rating.toFixed(2));
       return { rank: t.rank, cells };
     }),
-    updated: updated ? `Last games added: ${updated}` : '',
+    updated: updated ? `Last ${isSoccer ? 'matches' : 'games'} added: ${updated}` : '',
     seasonName,
   };
 }
