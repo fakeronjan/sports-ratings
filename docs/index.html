@@ -533,7 +533,7 @@ async function loadWLS(repo, badgeFn, opts) {
       cells.push(t.rating.toFixed(2));
       return { rank: t.rank, cells };
     }),
-    updated,
+    updated: updated ? `Last games added: ${updated}` : '',
     seasonName,
   };
 }
@@ -572,7 +572,7 @@ function loadTennisGoat(gender) {
       rank: i + 1,
       cells: [`${p.flag} ${escapeHtml(p.name)}`, p.ao, p.fo, p.wim, p.us, p.total],
     })),
-    updated: 'Open Era Grand Slams',
+    updated: 'Last updated: 🇦🇺 2026-01',
   });
 }
 
@@ -599,7 +599,7 @@ function loadLAVINGoat(gender) {
         p.era_rating.toFixed(1),
       ],
     })),
-    updated: 'All-time ERA rating',
+    updated: 'Last updated: S41 2025-12',
   }));
 }
 
