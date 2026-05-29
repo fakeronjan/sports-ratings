@@ -244,45 +244,112 @@
   .fleet-nav {
     background: #0e4a5f;
     display: flex;
+    align-items: stretch;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    font-size: 12px;
-    align-items: stretch;
     white-space: nowrap;
   }
-  .fleet-nav a {
-    color: rgba(255,255,255,0.72);
-    text-decoration: none;
-    padding: 8px 12px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    transition: color 0.15s, background 0.15s;
-    flex-shrink: 0;
+  .fleet-nav .nav-home {
     display: flex;
     align-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    text-decoration: none;
+    padding: 0 14px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.18);
   }
-  .fleet-nav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
-  .fleet-nav a.active { color: #ff6eb4; }
-  .fleet-nav .home { font-weight: 700; }
-  .fleet-nav .sep { width: 1px; background: rgba(255,255,255,0.18); margin: 4px 4px; flex-shrink: 0; }
+  .fleet-nav .nav-home:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .fleet-nav .nav-home.active { color: #ff6eb4; }
+  .fleet-nav .nav-group {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 0 5px 5px;
+    border-right: 1px solid rgba(255,255,255,0.18);
+  }
+  .fleet-nav .nav-group:last-child { border-right: none; }
+  .fleet-nav .nav-sport {
+    text-align: center;
+    color: rgba(255,255,255,0.5);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 6px 8px 4px;
+  }
+  .fleet-nav .nav-leagues {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+  }
+  .fleet-nav .nav-leagues a {
+    color: rgba(255,255,255,0.72);
+    text-decoration: none;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .fleet-nav .nav-leagues a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .fleet-nav .nav-leagues a.active { color: #ff6eb4; }
 </style>
 </head>
 <body>
 
 <nav class="fleet-nav">
-  <a class="home active" href="https://fakeronjan.com/sports" target="_top">📊 All Sports</a>
-  <span class="sep"></span>
-  <a href="https://fakeronjan.com/nba" target="_top">🏀 NBA</a>
-  <a href="https://fakeronjan.com/wnba" target="_top">🏀 WNBA</a>
-  <a href="https://fakeronjan.com/nfl" target="_top">🏈 NFL</a>
-  <a href="https://fakeronjan.com/ncaafb" target="_top">🏈 NCAA</a>
-  <a href="https://fakeronjan.com/eurosoccer" target="_top">⚽ Euro</a>
-  <a href="https://fakeronjan.com/mls" target="_top">⚽ MLS</a>
-  <a href="https://fakeronjan.com/intlsoccer" target="_top">⚽ Intl</a>
-  <a href="https://fakeronjan.com/mlb" target="_top">⚾ MLB</a>
-  <a href="https://fakeronjan.com/nhl" target="_top">🏒 NHL</a>
-  <a href="https://fakeronjan.com/tennis" target="_top">🎾 Tennis</a>
-  <a href="https://fakeronjan.com/thechallenge" target="_top">📺 Challenge</a>
+  <a class="nav-home active" href="https://fakeronjan.com/sports" target="_top">📊 All Sports</a>
+  <div class="nav-group">
+    <div class="nav-sport">Basketball 🏀</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/nba" target="_top">NBA</a>
+      <a href="https://fakeronjan.com/wnba" target="_top">WNBA</a>
+      <a href="https://fakeronjan.com/intlbasketball" target="_top">Men Intl</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">Football 🏈</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/nfl" target="_top">NFL</a>
+      <a href="https://fakeronjan.com/ncaafb" target="_top">College</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">Soccer ⚽</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/eurosoccer" target="_top">Euro</a>
+      <a href="https://fakeronjan.com/mls" target="_top">MLS</a>
+      <a href="https://fakeronjan.com/intlsoccer" target="_top">Men Intl</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">Baseball ⚾</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/mlb" target="_top">MLB</a>
+      <a href="https://fakeronjan.com/intlbaseball" target="_top">Men Intl</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">Hockey 🏒</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/nhl" target="_top">NHL</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">Tennis 🎾</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/tennis" target="_top">Slams</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-sport">The Challenge 📺</div>
+    <div class="nav-leagues">
+      <a href="https://fakeronjan.com/thechallenge" target="_top">Player Ratings</a>
+    </div>
+  </div>
 </nav>
 
 
@@ -403,6 +470,33 @@ function badgeMESSI(t) {
   }).join('');
 }
 
+// CARMELO (intl basketball) — same shape as MESSI; crown reserved for the
+// Olympics (basketball's pinnacle), 🏆 for other tournament golds.
+function badgeCARMELO(t) {
+  const fs = t.tournament_finishes;
+  if (!fs || !fs.length) return '';
+  return fs.map(x => {
+    const cls = x.finish === 1 ? 'b-champion' : x.finish === 2 ? 'b-runner' : 'b-bronze';
+    const medal = x.finish === 1
+      ? (x.tournament === 'Oly' ? '👑' : '🏆')
+      : x.finish === 2 ? '🥈' : '🥉';
+    return `<span class="badge-inline ${cls}">${x.tournament} ${medal}</span>`;
+  }).join('');
+}
+
+// ICHIRO (intl baseball) — crown reserved for the WBC (baseball's pinnacle).
+function badgeICHIRO(t) {
+  const fs = t.tournament_finishes;
+  if (!fs || !fs.length) return '';
+  return fs.map(x => {
+    const cls = x.finish === 1 ? 'b-champion' : x.finish === 2 ? 'b-runner' : 'b-bronze';
+    const medal = x.finish === 1
+      ? (x.tournament === 'WBC' ? '👑' : '🏆')
+      : x.finish === 2 ? '🥈' : '🥉';
+    return `<span class="badge-inline ${cls}">${x.tournament} ${medal}</span>`;
+  }).join('');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Loaders
 // Each returns: {columns: [labels], rows: [{rank, cells: [str|html, ...]}], updated}
@@ -444,6 +538,8 @@ const SEASON_FMT = {
   cobi:   s => `${s} season`,                              // MLS = calendar year
   messi:  s => `${s} season`,                              // year of latest competition
   griffey: s => `${s} season`,                             // MLB = calendar year
+  carmelo: s => `${s} season`,                             // intl basketball = calendar year
+  ichiro:  s => `${s} season`,                             // intl baseball = calendar year
   sakic:  s => `${s - 1}-${String(s).slice(-2)} season`,   // NHL spans two calendar years
 };
 
@@ -613,6 +709,7 @@ const SECTIONS = [
     cards: [
       { slug: 'nba',  title: 'NBA: DUNCAN ♂️🏀',   sectionLabel: 'Current Top 5', load: () => loadWLS('duncan', badgeDUNCAN) },
       { slug: 'wnba', title: 'WNBA: LOBO ♀️🏀',    sectionLabel: 'Current Top 5', load: () => loadWLS('lobo',   badgeLOBO) },
+      { slug: 'intlbasketball', title: 'Men Intl: CARMELO 🌍🏀', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('carmelo', badgeCARMELO, { showLast: true }) },
     ],
   },
   {
@@ -627,13 +724,14 @@ const SECTIONS = [
     cards: [
       { slug: 'eurosoccer', title: 'Euro: ZIDANE 🇪🇺⚽',  stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('zidane', badgeZIDANE) },
       { slug: 'mls',        title: 'MLS: COBI 🇺🇸⚽',      stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('cobi',   badgeCOBI) },
-      { slug: 'intlsoccer', title: 'Intl: MESSI 🌍⚽',     stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('messi',  badgeMESSI, { showLast: true }) },
+      { slug: 'intlsoccer', title: 'Men Intl: MESSI 🌍⚽', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('messi',  badgeMESSI, { showLast: true }) },
     ],
   },
   {
     label: 'Baseball',
     cards: [
-      { slug: 'mlb', title: 'MLB: GRIFFEY ⚾', stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('griffey', badgeGRIFFEY) },
+      { slug: 'mlb',          title: 'MLB: GRIFFEY ⚾',        stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('griffey', badgeGRIFFEY) },
+      { slug: 'intlbaseball', title: 'Men Intl: ICHIRO 🌍⚾', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('ichiro',  badgeICHIRO, { showLast: true }) },
     ],
   },
   {
