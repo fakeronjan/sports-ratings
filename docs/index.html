@@ -591,7 +591,7 @@ async function loadWLS(repo, badgeFn, opts) {
   const isSoccer = SOCCER_SPORTS.has(repo);
   const isHockey = HOCKEY_SPORTS.has(repo);
   const showPlayoffs = !isSoccer && top5.some(t => hasGames(t.playoff_record));
-  const showRecord = top5.some(t => t.regular_record || t.record);
+  const showRecord = !opts.hideRecord && top5.some(t => t.regular_record || t.record);
   const showLast = !!opts.showLast;
   const recordLabel = isSoccer ? 'W-D-L' : (isHockey ? 'W-L-OTL' : 'W-L');
   // Three-component records (W-D-L / W-L-OTL) need a wider column than W-L.
@@ -709,7 +709,7 @@ const SECTIONS = [
     cards: [
       { slug: 'nba',  title: 'NBA: DUNCAN ♂️🏀',   sectionLabel: 'Current Top 5', load: () => loadWLS('duncan', badgeDUNCAN) },
       { slug: 'wnba', title: 'WNBA: LOBO ♀️🏀',    sectionLabel: 'Current Top 5', load: () => loadWLS('lobo',   badgeLOBO) },
-      { slug: 'intlbasketball', title: 'Men Intl: CARMELO 🌍🏀', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('carmelo', badgeCARMELO, { showLast: true }) },
+      { slug: 'intlbasketball', title: 'Men Intl: CARMELO 🌍🏀', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('carmelo', badgeCARMELO, { showLast: true, hideRecord: true }) },
     ],
   },
   {
@@ -731,7 +731,7 @@ const SECTIONS = [
     label: 'Baseball',
     cards: [
       { slug: 'mlb',          title: 'MLB: GRIFFEY ⚾',        stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('griffey', badgeGRIFFEY) },
-      { slug: 'intlbaseball', title: 'Men Intl: ICHIRO 🌍⚾', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('ichiro',  badgeICHIRO, { showLast: true }) },
+      { slug: 'intlbaseball', title: 'Men Intl: ICHIRO 🌍⚾', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('ichiro',  badgeICHIRO, { showLast: true, hideRecord: true }) },
     ],
   },
   {
