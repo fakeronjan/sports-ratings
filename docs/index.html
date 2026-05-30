@@ -224,11 +224,16 @@
     border-top: 1px dashed #eee;
     margin-top: auto;
     font-variant-numeric: tabular-nums;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .card-cadence {
     font-size: 10px;
     color: #aaa;
-    margin-top: 3px;
+    white-space: nowrap;
   }
   .card-loading, .card-error { color: #aaa; font-style: italic; font-size: 12px; padding: 8px 0; }
   .card-error { color: #c62828; }
@@ -825,11 +830,14 @@ function renderCard(card, payload, error) {
     manual: '🛠️ Updated manually',
   }[CADENCE_BY_SLUG[card.slug]] || '';
   const cadenceHtml = cadenceLabel
-    ? `<div class="card-cadence">${cadenceLabel}</div>`
+    ? `<span class="card-cadence">${cadenceLabel}</span>`
     : '';
-  const foot = payload && !error
-    ? `<div class="card-foot">${escapeHtml(payload.updated || '')}${cadenceHtml}</div>`
-    : (cadenceHtml ? `<div class="card-foot">${cadenceHtml}</div>` : '');
+  const updatedHtml = payload && !error && payload.updated
+    ? `<span>${escapeHtml(payload.updated)}</span>`
+    : '<span></span>';
+  const foot = (payload && !error) || cadenceHtml
+    ? `<div class="card-foot">${updatedHtml}${cadenceHtml}</div>`
+    : '';
   return `
     <a class="card" href="${SQ}/${card.slug}" target="_top">
       <div class="card-head">
