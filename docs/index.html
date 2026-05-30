@@ -725,14 +725,15 @@ function loadLAVINGoat(gender) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Refresh-cadence label per source. Auto-cron sites refresh daily;
-// event-based sites refresh after season / tournament (Tennis Grand Slams,
-// The Challenge seasons); manual sites need an explicit local run.
+// everything else needs an explicit local run (Wikipedia scrapers for the
+// three intl sites; refresh.py for Tennis after each Grand Slam; manual
+// LAVIN rebuild after each Challenge season).
 const CADENCE_BY_SLUG = {
   nba: 'daily', wnba: 'daily', nfl: 'daily', ncaafb: 'daily',
   eurosoccer: 'daily', mls: 'daily', intlsoccer: 'daily',
   mlb: 'daily', nhl: 'daily',
   intlbasketball: 'manual', intlbaseball: 'manual', intlhockey: 'manual',
-  tennis: 'event', thechallenge: 'event',
+  tennis: 'manual', thechallenge: 'manual',
 };
 
 const SECTIONS = [
@@ -821,7 +822,6 @@ function renderCard(card, payload, error) {
   }
   const cadenceLabel = {
     daily:  '🔄 Updated daily',
-    event:  '🗓️ Updated after season / tournament',
     manual: '🛠️ Updated manually',
   }[CADENCE_BY_SLUG[card.slug]] || '';
   const cadenceHtml = cadenceLabel
