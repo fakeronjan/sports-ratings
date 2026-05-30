@@ -225,6 +225,11 @@
     margin-top: auto;
     font-variant-numeric: tabular-nums;
   }
+  .card-cadence {
+    font-size: 10px;
+    color: #aaa;
+    margin-top: 3px;
+  }
   .card-loading, .card-error { color: #aaa; font-style: italic; font-size: 12px; padding: 8px 0; }
   .card-error { color: #c62828; }
 
@@ -719,6 +724,17 @@ function loadLAVINGoat(gender) {
 // Sections
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Refresh-cadence label per source. Auto-cron sites refresh daily;
+// event-based sites refresh after season / tournament (Tennis Grand Slams,
+// The Challenge seasons); manual sites need an explicit local run.
+const CADENCE_BY_SLUG = {
+  nba: 'daily', wnba: 'daily', nfl: 'daily', ncaafb: 'daily',
+  eurosoccer: 'daily', mls: 'daily', intlsoccer: 'daily',
+  mlb: 'daily', nhl: 'daily',
+  intlbasketball: 'manual', intlbaseball: 'manual', intlhockey: 'manual',
+  tennis: 'event', thechallenge: 'event',
+};
+
 const SECTIONS = [
   {
     label: 'Basketball',
@@ -803,9 +819,17 @@ function renderCard(card, payload, error) {
   } else {
     body = `<div class="card-loading">Loading…</div>`;
   }
-  const foot = payload && !error
-    ? `<div class="card-foot">${escapeHtml(payload.updated || '')}</div>`
+  const cadenceLabel = {
+    daily:  '🔄 Updated daily',
+    event:  '🗓️ Updated after season / tournament',
+    manual: '🛠️ Updated manually',
+  }[CADENCE_BY_SLUG[card.slug]] || '';
+  const cadenceHtml = cadenceLabel
+    ? `<div class="card-cadence">${cadenceLabel}</div>`
     : '';
+  const foot = payload && !error
+    ? `<div class="card-foot">${escapeHtml(payload.updated || '')}${cadenceHtml}</div>`
+    : (cadenceHtml ? `<div class="card-foot">${cadenceHtml}</div>` : '');
   return `
     <a class="card" href="${SQ}/${card.slug}" target="_top">
       <div class="card-head">
