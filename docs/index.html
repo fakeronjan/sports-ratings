@@ -336,6 +336,7 @@
     <div class="nav-sport">Hockey 🏒</div>
     <div class="nav-leagues">
       <a href="https://fakeronjan.com/nhl" target="_top">NHL</a>
+      <a href="https://fakeronjan.com/intlhockey" target="_top">Men Intl</a>
     </div>
   </div>
   <div class="nav-group">
@@ -497,6 +498,20 @@ function badgeICHIRO(t) {
   }).join('');
 }
 
+// FORSBERG (intl hockey) -- crown reserved for the Olympics (hockey's true
+// pinnacle; user-locked tier weighting).
+function badgeFORSBERG(t) {
+  const fs = t.tournament_finishes;
+  if (!fs || !fs.length) return '';
+  return fs.map(x => {
+    const cls = x.finish === 1 ? 'b-champion' : x.finish === 2 ? 'b-runner' : 'b-bronze';
+    const medal = x.finish === 1
+      ? (x.tournament === 'Oly' ? '👑' : '🏆')
+      : x.finish === 2 ? '🥈' : '🥉';
+    return `<span class="badge-inline ${cls}">${x.tournament} ${medal}</span>`;
+  }).join('');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Loaders
 // Each returns: {columns: [labels], rows: [{rank, cells: [str|html, ...]}], updated}
@@ -540,6 +555,7 @@ const SEASON_FMT = {
   griffey: s => `${s} season`,                             // MLB = calendar year
   carmelo: s => `${s} season`,                             // intl basketball = calendar year
   ichiro:  s => `${s} season`,                             // intl baseball = calendar year
+  forsberg: s => `${s} season`,                            // intl hockey = calendar year
   sakic:  s => `${s - 1}-${String(s).slice(-2)} season`,   // NHL spans two calendar years
 };
 
@@ -738,6 +754,7 @@ const SECTIONS = [
     label: 'Hockey',
     cards: [
       { slug: 'nhl', title: 'NHL: SAKIC 🥅🏒', stage: 'Beta',  sectionLabel: 'Current Top 5', load: () => loadWLS('sakic', badgeSAKIC) },
+      { slug: 'intlhockey', title: 'Men Intl: FORSBERG 🌍🏒', stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadWLS('forsberg', badgeFORSBERG, { showLast: true, hideRecord: true }) },
     ],
   },
   {
