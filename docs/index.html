@@ -231,7 +231,6 @@
     flex-wrap: wrap;
   }
   .card-cadence {
-    font-size: 10px;
     color: #aaa;
     white-space: nowrap;
   }
@@ -836,7 +835,7 @@ function renderCard(card, payload, error) {
     ? `<span>${escapeHtml(payload.updated)}</span>`
     : '<span></span>';
   const foot = (payload && !error) || cadenceHtml
-    ? `<div class="card-foot">${updatedHtml}${cadenceHtml}</div>`
+    ? `<div class="card-foot">${cadenceHtml}${updatedHtml}</div>`
     : '';
   return `
     <a class="card" href="${SQ}/${card.slug}" target="_top">
