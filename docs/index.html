@@ -659,10 +659,14 @@ async function loadWLS(repo, badgeFn, opts) {
 }
 
 const TENNIS_SLAM_FLAG = { AO: '🇦🇺', FO: '🇫🇷', Wim: '🇬🇧', US: '🇺🇸' };
+// Right-side widths: 60 + 110 + 50 = 220px — matches the 226px convention
+// LAVIN's column comment cites (the old hardcoded TENNIS GOAT card used the
+// same 4×44 + 50 layout). Keeps Player-column whitespace consistent with
+// the fleet's other cards.
 const TENNIS_COLS = [
   { label: 'Player', cls: 'name' },
-  { label: 'Titles', cls: 'num',    width: 48 },
-  { label: 'Slams',  cls: 'num',    width: 68 },
+  { label: 'Titles', cls: 'num',    width: 60 },
+  { label: 'Slams',  cls: 'num',    width: 110 },
   { label: 'Rating', cls: 'rating' },
 ];
 
