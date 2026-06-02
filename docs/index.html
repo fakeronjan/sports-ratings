@@ -658,42 +658,44 @@ async function loadWLS(repo, badgeFn, opts) {
   };
 }
 
+const TENNIS_SLAM_FLAG = { AO: '🇦🇺', FO: '🇫🇷', Wim: '🇬🇧', US: '🇺🇸' };
 const TENNIS_COLS = [
   { label: 'Player', cls: 'name' },
-  { label: '🇦🇺', cls: 'num' },
-  { label: '🇫🇷', cls: 'num' },
-  { label: '🇬🇧', cls: 'num' },
-  { label: '🇺🇸', cls: 'num' },
-  { label: 'Total', cls: 'rating' },
+  { label: 'Titles', cls: 'num',    width: 48 },
+  { label: 'Slams',  cls: 'num',    width: 68 },
+  { label: 'Rating', cls: 'rating' },
 ];
 
-// Hardcoded GOAT data with per-major breakdown + country flag
-const TENNIS_GOAT = {
-  M: [
-    { name: 'Novak Djokovic', flag: '🇷🇸', ao: 10, fo: 3,  wim: 7, us: 4, total: 24 },
-    { name: 'Rafael Nadal',   flag: '🇪🇸', ao: 2,  fo: 14, wim: 2, us: 4, total: 22 },
-    { name: 'Roger Federer',  flag: '🇨🇭', ao: 6,  fo: 1,  wim: 8, us: 5, total: 20 },
-    { name: 'Pete Sampras',   flag: '🇺🇸', ao: 2,  fo: 0,  wim: 7, us: 5, total: 14 },
-    { name: 'Björn Borg',     flag: '🇸🇪', ao: 0,  fo: 6,  wim: 5, us: 0, total: 11 },
-  ],
-  W: [
-    { name: 'Serena Williams',     flag: '🇺🇸', ao: 7, fo: 3, wim: 7, us: 6, total: 23 },
-    { name: 'Steffi Graf',         flag: '🇩🇪', ao: 4, fo: 6, wim: 7, us: 5, total: 22 },
-    { name: 'Chris Evert',         flag: '🇺🇸', ao: 2, fo: 7, wim: 3, us: 6, total: 18 },
-    { name: 'Martina Navratilova', flag: '🇺🇸', ao: 3, fo: 2, wim: 9, us: 4, total: 18 },
-    { name: 'Margaret Court',      flag: '🇦🇺', ao: 4, fo: 3, wim: 1, us: 3, total: 11 },
-  ],
-};
+function _fmtMonthYY(iso) {
+  if (!iso) return '';
+  const [y, m] = iso.split('-');
+  return `${parseInt(m, 10)}/${y.slice(2)}`;
+}
 
-function loadTennisGoat(gender) {
-  return Promise.resolve({
-    columns: TENNIS_COLS,
-    rows: TENNIS_GOAT[gender].map((p, i) => ({
-      rank: i + 1,
-      cells: [`${p.flag} ${escapeHtml(p.name)}`, p.ao, p.fo, p.wim, p.us, p.total],
-    })),
-    updated: 'Last updated: 🇦🇺 2026-01',
+async function loadTennisCurrent(gender) {
+  const slug = gender === 'M' ? 'atp' : 'wta';
+  const data = await fetchJson(`${GH}/tennis/data/power_rankings_history_${slug}.json`);
+  const snap = (data && data.snapshots && data.snapshots['Today']) || null;
+  if (!snap) return { columns: TENNIS_COLS, rows: [], updated: '' };
+  const rows = snap.players.slice(0, 5).map(p => {
+    const flag = p.country ? `${p.country} ` : '';
+    const slams = (p.slams_won || []).map(c => TENNIS_SLAM_FLAG[c] || '').filter(Boolean).join(' ') || '-';
+    return {
+      rank: p.rank,
+      cells: [
+        `${flag}${escapeHtml(p.player)}`,
+        p.titles ?? 0,
+        slams,
+        p.base.toFixed(2),
+      ],
+    };
   });
+  return {
+    columns: TENNIS_COLS,
+    rows,
+    seasonName: `Snapshot ${_fmtMonthYY(snap.window_start)} - ${_fmtMonthYY(snap.window_end)}`,
+    updated: `Last updated: ${snap.date}`,
+  };
 }
 
 // Widths chosen so the 3 middle cols sum to 176px (same as TENNIS's
@@ -780,8 +782,8 @@ const SECTIONS = [
   {
     label: 'Tennis',
     cards: [
-      { slug: 'tennis', title: "Men's Tennis 🎾",   sectionLabel: 'GOAT Top 5', load: () => loadTennisGoat('M') },
-      { slug: 'tennis', title: "Women's Tennis 🎾", sectionLabel: 'GOAT Top 5', load: () => loadTennisGoat('W') },
+      { slug: 'tennis', title: "Men's Tennis 🎾",   sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('M') },
+      { slug: 'tennis', title: "Women's Tennis 🎾", sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('W') },
     ],
   },
   {
