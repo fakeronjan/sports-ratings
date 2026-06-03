@@ -170,9 +170,26 @@
     font-weight: 600;
     color: #1a1a1a;
     overflow: hidden;
+    max-width: 1px; /* tells browser to honor truncation inside fixed table */
+  }
+  /* Inside td.name we flex so the team name truncates with ellipsis but
+     trophy badges stay fully visible on the right. */
+  .name-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .name-text {
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 1px; /* tells browser to honor ellipsis inside fixed table */
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .name-badges {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   td.num, th.col-num {
     font-variant-numeric: tabular-nums;
@@ -633,7 +650,8 @@ async function loadWLS(repo, badgeFn, opts) {
       const baseName = escapeHtml(t.display_name || t.team);
       const flag = t.flag ? `${t.flag} ` : '';
       const name = flag + baseName;
-      const cells = [name + badgeFn(t)];
+      const badges = badgeFn(t);
+      const cells = [`<span class="name-inner"><span class="name-text">${name}</span>${badges ? `<span class="name-badges">${badges}</span>` : ''}</span>`];
       if (showRecord) {
         const reg = t.regular_record || t.record || '';
         cells.push(escapeHtml(String(reg).replace(/\s*-\s*/g, '-')));
