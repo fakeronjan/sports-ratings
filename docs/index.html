@@ -742,7 +742,7 @@ const CADENCE_BY_SLUG = {
   eurosoccer: 'daily', mls: 'daily', intlsoccer: 'daily',
   mlb: 'daily', nhl: 'daily',
   intlbasketball: 'daily', intlbaseball: 'daily', intlhockey: 'daily',
-  tennis: 'manual', thechallenge: 'manual',
+  tennis: 'daily', thechallenge: 'manual',
 };
 
 const SECTIONS = [
@@ -786,8 +786,8 @@ const SECTIONS = [
   {
     label: 'Tennis',
     cards: [
-      { slug: 'tennis', title: "Men's Tennis 🎾",   sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('M') },
-      { slug: 'tennis', title: "Women's Tennis 🎾", sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('W') },
+      { slug: 'tennis', title: "Men's Tennis 🎾",   stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('M') },
+      { slug: 'tennis', title: "Women's Tennis 🎾", stage: 'Alpha', sectionLabel: 'Current Top 5', load: () => loadTennisCurrent('W') },
     ],
   },
   {
