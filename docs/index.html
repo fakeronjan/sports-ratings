@@ -431,26 +431,25 @@ function badgeSALAAM(t) {
   return '';
 }
 
-const ZIDANE_CUP_SHORT = {
-  'EPL':        'FA Cup',
-  'La Liga':    'Copa del Rey',
-  'Bundesliga': 'DFB-Pokal',
-  'Serie A':    'Coppa Italia',
+// Card-only badge for ZIDANE: CL Champion/Runner-Up + league champion
+// (flag-only label to save space). EL, domestic cup, and the TREBLE
+// composite are intentionally omitted here — the full-detail badges
+// live on the ZIDANE site itself.
+const ZIDANE_LEAGUE_FLAG = {
+  'EPL':        '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'La Liga':    '🇪🇸',
+  'Bundesliga': '🇩🇪',
+  'Serie A':    '🇮🇹',
+  'Ligue 1':    '🇫🇷',
 };
 function badgeZIDANE(t) {
-  const dom = t.domestic_finish, cl = t.cl_finish, el = t.el_finish;
-  const cup = t.domestic_cup_finish || '';
-  const cupLabel = ZIDANE_CUP_SHORT[t.league] || 'Cup';
   const bits = [];
-  if (dom === 'Champion' && cl === 'Champion' && cup === 'Champion') {
-    bits.push(`<span class="badge-inline b-treble">TREBLE 👑</span>`);
+  if (t.cl_finish === 'Champion')   bits.push(`<span class="badge-inline b-champion">CL 🏆</span>`);
+  if (t.cl_finish === 'Runner-Up')  bits.push(`<span class="badge-inline b-runner">CL 🥈</span>`);
+  if (t.domestic_finish === 'Champion') {
+    const flag = ZIDANE_LEAGUE_FLAG[t.league] || '';
+    bits.push(`<span class="badge-inline b-champion">${flag} 🏆</span>`);
   }
-  if (cl === 'Champion')   bits.push(`<span class="badge-inline b-champion">CL 🏆</span>`);
-  if (cl === 'Runner-Up')  bits.push(`<span class="badge-inline b-runner">CL 🥈</span>`);
-  if (el === 'Champion')   bits.push(`<span class="badge-inline b-champion">EL 🏆</span>`);
-  if (el === 'Runner-Up')  bits.push(`<span class="badge-inline b-runner">EL 🥈</span>`);
-  if (cup === 'Champion')  bits.push(`<span class="badge-inline b-champion">${cupLabel} 🏆</span>`);
-  if (cup === 'Runner-Up') bits.push(`<span class="badge-inline b-runner">${cupLabel} 🥈</span>`);
   return bits.join('');
 }
 
