@@ -50,29 +50,35 @@
     padding: 24px 20px 48px;
   }
 
-  /* Tab nav - matches DUNCAN / GRIFFEY / LOBO fleet pattern */
+  /* Tab nav - portal style (clean white strip with teal hover + pink active).
+     Distinct from the dark-teal fleet-interior nav since the portal is the
+     parent hub, not an interior site. */
   nav.view-tabs {
-    background: #155a75;
+    background: #fff;
+    border-bottom: 1px solid #e3e3e0;
+    padding: 0 20px;
     display: flex;
     gap: 0;
+    max-width: 1320px;
+    margin: 0 auto;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
   nav.view-tabs button {
     background: none;
     border: none;
-    color: #aaa;
-    padding: 12px 20px;
+    padding: 14px 22px;
     font-size: 13px;
     font-weight: 600;
-    cursor: pointer;
     letter-spacing: 0.5px;
+    color: #888;
+    cursor: pointer;
     white-space: nowrap;
     border-bottom: 3px solid transparent;
     transition: color 0.15s, border-color 0.15s;
     font-family: inherit;
   }
-  nav.view-tabs button:hover { color: #fff; }
+  nav.view-tabs button:hover { color: #1a6b8a; }
   nav.view-tabs button.active { color: #ff6eb4; border-bottom-color: #ff6eb4; }
 
   /* <main> already provides max-width + padding; views just toggle display. */
