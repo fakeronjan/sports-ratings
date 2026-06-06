@@ -36,7 +36,11 @@ SPORT_FINALE_NAMES = {
     'MLS':  'MLS Cup',
 }
 
-FROM_YEAR = 1997
+# NHL data starts at 1980 (earliest season ending in calendar year 1980),
+# which is the floor for all 4 US major leagues having coverage. NBA, NFL,
+# and MLB go further back but we cap at NHL for an "all 4 majors" view.
+# WNBA (1997) and MLS (1996) just won't contribute to pre-1996/97 entries.
+FROM_YEAR = 1980
 TO_YEAR   = 2026  # include current in-progress year
 
 
@@ -131,19 +135,18 @@ for sport, repo in REPOS.items():
     print(f"  {sport}: {len(all_snaps[sport])} snapshots, "
           f"{len(finale_dates_by_sport[sport])} season ends")
 
-# Build the list of key dates (sport finales + year-ends), sorted.
+# Rolling view captured AT THE END OF EACH SPORT'S SEASON.
+# Year-End snapshots dropped per user direction 2026-06-06: each sport's
+# championship moment is the natural "rating window", and the Year-End was
+# a synthetic moment that didn't correspond to any actual sports event.
+# Current live snapshot is also dropped from this view - the Current
+# Summary tab already shows live ratings via the sport cards.
 key_dates = []  # list of (date, label, year, kind)
 for sport, finales in finale_dates_by_sport.items():
     for fd in finales:
         if fd.year < FROM_YEAR or fd.year > TO_YEAR:
             continue
         key_dates.append((fd, f"{fd.year} {SPORT_FINALE_NAMES[sport]}", fd.year, sport))
-for year in range(FROM_YEAR, TO_YEAR + 1):
-    # Cap at today's date so we don't emit a 2026-12-31 snapshot from June.
-    target = date(year, 12, 31)
-    if target > date.today():
-        continue
-    key_dates.append((target, f"{year} Year-End", year, 'year-end'))
 key_dates.sort(key=lambda x: x[0])
 
 print(f"\nKey dates: {len(key_dates)}")

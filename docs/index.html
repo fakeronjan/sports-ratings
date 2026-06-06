@@ -597,14 +597,14 @@
   <div id="cross-sport-rankings-view" class="view tab">
     <p class="intro-note">
       <strong>Cross-Sport Rankings.</strong>
-      Pick a moment in time (each sport's championship day, or Dec 31) to see how cities ranked when scores are normalized for differences across sports. Cities with multiple teams in the same sport count just their best team in that sport.
+      A rolling view captured at the end of each sport's season. Pick any championship moment to see how cities ranked when ratings are normalized for differences across sports. Cities with multiple teams in the same sport count just their best team in that sport. History goes back to 1980 (the earliest year with NBA, NFL, MLB, and NHL all on board); WNBA and MLS start contributing in 1997 / 1996.
     </p>
     <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-history-view" class="view tab">
     <p class="intro-note">
       <strong>City History.</strong>
-      Pick any city to see how its strength has moved over time. The trophy markers above the line show when one of the city's teams won a championship (👑) or was runner-up (🥈).
+      Pick any city to see how its strength has moved over time. Each dot represents one championship moment from a major league season (NBA Finals, NFL Super Bowl, MLB World Series, WNBA Finals, NHL Stanley Cup, MLS Cup). The trophy markers above the line show when one of the city's teams won a championship (👑) or was runner-up (🥈).
     </p>
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
@@ -1619,15 +1619,23 @@ function navigateToCity(cityName) {
 }
 function navigateToYear(year) {
   document.querySelector('nav.view-tabs button[data-view="cross-sport-rankings"]').click();
+  // Jump to the LATEST snapshot of the target year (typically MLS Cup in
+  // December, or the last sport to wrap that year). Falls back to the
+  // first snapshot of the year if the latest doesn't match.
   setTimeout(() => {
     const sel = document.getElementById('csr-date');
     if (!sel) return;
+    let match = null;
     for (const opt of sel.options) {
-      if (opt.textContent.startsWith(`${year}-12-31`)) {
-        sel.value = opt.value;
-        sel.dispatchEvent(new Event('change'));
-        return;
+      if (opt.textContent.startsWith(`${year}-`)) {
+        match = opt;  // keep latest match (options are sorted desc, so we
+                      // actually want the FIRST one we see)
+        break;
       }
+    }
+    if (match) {
+      sel.value = match.value;
+      sel.dispatchEvent(new Event('change'));
     }
   }, 50);
 }
@@ -1644,23 +1652,13 @@ async function renderCrossSportRankings() {
     return;
   }
 
-  // Picker options: snapshots reverse-chronological, plus a live "Current"
-  // entry at the top. Labels match fleet pattern: "DATE | LABEL".
-  const opts = [
-    { value: 'current', text: 'Current | Live ratings (when each sport last updated)' },
-    ...data.snapshotMetros.map((s, i) => ({
-      value: String(i),
-      text:  `${s.date} | ${s.label}`,
-      year:  s.year,
-      date:  s.date,
-    })),
-  ];
-  // Sort: live first, then dates desc.
-  opts.sort((a, b) => {
-    if (a.value === 'current') return -1;
-    if (b.value === 'current') return 1;
-    return (b.date || '').localeCompare(a.date || '');
-  });
+  // Picker options: each sport's championship moments, reverse-chronological.
+  // No Year-End entries (those were synthetic). No live "Current" entry -
+  // the Current Summary tab already shows live ratings via the cards.
+  // Labels match fleet pattern: "DATE | LABEL".
+  const opts = data.snapshotMetros
+    .map((s, i) => ({ value: String(i), text: `${s.date} | ${s.label}`, date: s.date }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   el.innerHTML = `
     <div class="controls">
@@ -1676,17 +1674,11 @@ async function renderCrossSportRankings() {
   const tbl  = el.querySelector('#csr-table');
   const meta = el.querySelector('#csr-meta');
   const update = () => {
-    const v = sel.value;
-    if (v === 'current') {
-      tbl.innerHTML = buildRankingsTable(data.current);
-      meta.textContent = 'Current live ratings';
-    } else {
-      const snap = data.snapshotMetros[parseInt(v)];
-      tbl.innerHTML = buildRankingsTable(snap.metros);
-      const used = Object.entries(snap.snapshots_used || {})
-        .map(([k, v]) => `${k} ${v}`).join(' · ');
-      meta.textContent = used ? `Sport rating windows: ${used}` : '';
-    }
+    const snap = data.snapshotMetros[parseInt(sel.value)];
+    tbl.innerHTML = buildRankingsTable(snap.metros);
+    const used = Object.entries(snap.snapshots_used || {})
+      .map(([k, v]) => `${k} ${v}`).join(' · ');
+    meta.textContent = used ? `Sport rating windows: ${used}` : '';
     attachCityLinks();
   };
   sel.addEventListener('change', update);
@@ -1734,6 +1726,9 @@ function renderSingleCityChart(cityName, data) {
   const svg     = document.getElementById('city-history-chart');
   const tableEl = document.getElementById('ch-table');
 
+  // Rolling view: each point is one sport's end-of-season moment for this
+  // city. No live "current" appended since the Current Summary tab covers
+  // live ratings via the sport cards.
   const points = [];  // {date, label, year, combinedZ, peakZ, teams, hasChamp, hasRu}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
@@ -1745,17 +1740,6 @@ function renderSingleCityChart(cityName, data) {
       combinedZ: m.combinedZ, peakZ: m.peakZ,
       teams: m.teams, kind: s.kind,
       hasChamp, hasRu,
-    });
-  }
-  const liveMetro = data.current.find(x => x.name === cityName);
-  if (liveMetro) {
-    const today = new Date().toISOString().slice(0, 10);
-    points.push({
-      date: today, label: 'Current (Live)', year: new Date().getFullYear(),
-      combinedZ: liveMetro.combinedZ, peakZ: liveMetro.peakZ,
-      teams: liveMetro.teams, kind: 'current',
-      hasChamp: liveMetro.teams.some(t => t.finalsStatus === 2),
-      hasRu:    liveMetro.teams.some(t => t.finalsStatus === 1),
     });
   }
 
