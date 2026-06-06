@@ -141,12 +141,37 @@ for sport, repo in REPOS.items():
 # a synthetic moment that didn't correspond to any actual sports event.
 # Current live snapshot is also dropped from this view - the Current
 # Summary tab already shows live ratings via the sport cards.
-key_dates = []  # list of (date, label, year, kind)
+#
+# NBA Finals + NHL Stanley Cup combine into a single "NBA + NHL Finals"
+# snapshot at the LATER of the two end dates. They happen within days of
+# each other every June; collapsing them keeps the picker tidy and the
+# City History chart from showing two redundant adjacent points. By the
+# later date, both sports' final ratings are baked in.
+
+# Group finales by year so we can apply the NBA+NHL combine rule.
+finales_by_year = {}  # year -> {sport: date}
 for sport, finales in finale_dates_by_sport.items():
     for fd in finales:
         if fd.year < FROM_YEAR or fd.year > TO_YEAR:
             continue
-        key_dates.append((fd, f"{fd.year} {SPORT_FINALE_NAMES[sport]}", fd.year, sport))
+        finales_by_year.setdefault(fd.year, {})[sport] = fd
+
+key_dates = []  # list of (date, label, year, kind)
+for year in sorted(finales_by_year):
+    sports_dates = finales_by_year[year]
+    nba_dt = sports_dates.get('NBA')
+    nhl_dt = sports_dates.get('NHL')
+    if nba_dt and nhl_dt:
+        later = max(nba_dt, nhl_dt)
+        key_dates.append((later, f"{year} NBA + NHL Finals", year, 'nba+nhl'))
+    elif nba_dt:
+        key_dates.append((nba_dt, f"{year} NBA Finals", year, 'NBA'))
+    elif nhl_dt:
+        key_dates.append((nhl_dt, f"{year} NHL Stanley Cup", year, 'NHL'))
+    for sport in ('NFL', 'MLB', 'WNBA', 'MLS'):
+        if sport in sports_dates:
+            fd = sports_dates[sport]
+            key_dates.append((fd, f"{year} {SPORT_FINALE_NAMES[sport]}", year, sport))
 key_dates.sort(key=lambda x: x[0])
 
 print(f"\nKey dates: {len(key_dates)}")
