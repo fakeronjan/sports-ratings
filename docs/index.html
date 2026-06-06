@@ -212,6 +212,17 @@
     font-size: 11px;
     font-weight: normal;
   }
+  .champ-line {
+    line-height: 1.5;
+    padding: 1px 0;
+  }
+  .champ-line + .champ-line {
+    color: #777;
+    font-size: 12px;
+  }
+  .champ-line + .champ-line .last-champ-sport {
+    background: #e8e8e8;
+  }
 
   .single-sport-tag {
     color: #aaa;
@@ -1492,30 +1503,31 @@ const TEAM_TO_METRO = {
 // Tennessee in 1997, the 1960/61 AFL titles stay with HOUSTON; Nashville
 // got NFL in 1997 and is data-driven from there.
 const PRE_1980_LAST_TITLE = {
-  // [year, era-correct team name, optional note]. Note is rendered as
-  // an inline "(AFL)" footnote on the Last Champion cell - useful for
-  // distinguishing AFL championships from Super Bowl wins so the UI
-  // doesn't misleadingly imply Buffalo / SD have a SB ring.
+  // [year, FULL team name (matches data), optional note]. The full name
+  // matches what the data snapshots use, so the isTitleTeam comparison
+  // works for the team-currently-in-the-city case (e.g. Buffalo Bills
+  // appearing in 1980+ snapshots is recognized as the 1965 AFL winner).
+  // Display path runs the name through TEAM_SHORT_NAME for the chip
+  // and Last Champion cell. Note is rendered as a small "(AFL)" footnote.
   // NFL: Super Bowl era + pre-SB NFL/AFL titles
-  'Buffalo__NFL':                              [1965, 'Bills',    'AFL'],   // AFL champion (never won SB)
-  'Cleveland__NFL':                            [1964, 'Browns'],            // NFL Championship
-  'Detroit__NFL':                              [1957, 'Lions'],             // NFL Championship
-  'Houston__NFL':                              [1961, 'Oilers',   'AFL'],   // AFL champion (Houston market)
-  'San Diego__NFL':                            [1963, 'Chargers', 'AFL'],   // AFL champion (SD Chargers departed 2016)
+  'Buffalo__NFL':                              [1965, 'Buffalo Bills',         'AFL'],
+  'Cleveland__NFL':                            [1964, 'Cleveland Browns'],
+  'Detroit__NFL':                              [1957, 'Detroit Lions'],
+  'Houston__NFL':                              [1961, 'Houston Oilers',        'AFL'],   // Oilers' Houston tenure
+  'San Diego__NFL':                            [1963, 'San Diego Chargers',    'AFL'],   // departed 2016
 
   // NBA
-  'New York / New Jersey__NBA':                [1973, 'Knicks'],        // Nets ABA titles do not count as NBA
-  'Portland__NBA':                             [1977, 'Trail Blazers'],
-  'Washington__NBA':                           [1978, 'Bullets'],       // era-correct (Wizards is the modern name)
-
+  'New York / New Jersey__NBA':                [1973, 'New York Knicks'],
+  'Portland__NBA':                             [1977, 'Portland Trail Blazers'],
+  'Washington__NBA':                           [1978, 'Washington Bullets'],            // era-correct
   // MLB
-  'Cleveland__MLB':                            [1948, 'Indians'],       // era-correct (Guardians is the modern name)
-  'Pittsburgh__MLB':                           [1979, 'Pirates'],
-  'Milwaukee__MLB':                            [1957, 'Braves'],        // Milwaukee Braves (Brewers continue same market drought)
+  'Cleveland__MLB':                            [1948, 'Cleveland Indians'],            // era-correct
+  'Pittsburgh__MLB':                           [1979, 'Pittsburgh Pirates'],
+  'Milwaukee__MLB':                            [1957, 'Milwaukee Braves'],             // Braves' Milwaukee tenure
 
   // NHL
-  'Toronto__NHL':                              [1967, 'Maple Leafs'],
-  'Philadelphia__NHL':                         [1975, 'Flyers'],
+  'Toronto__NHL':                              [1967, 'Toronto Maple Leafs'],
+  'Philadelphia__NHL':                         [1975, 'Philadelphia Flyers'],
 };
 
 // Year a team entered its current (or historical) market, for teams
@@ -2418,9 +2430,13 @@ async function renderCityDroughts() {
   //                                       in this market (data-window-bounded)
   //   lastTitle[`city__sport`]          = { year, team } of latest finalsStatus=2
   //   latestSeason[sport]               = max season year in that sport
+  //   cityChamps[city]                  = [{year, team, sport, note?}, ...]
+  //                                       ALL championships (data + PRE_1980) for
+  //                                       the Last Champion lineage column.
   const tenuresByCity = {};
   const lastTitle = {};
   const latestSeason = {};
+  const cityChamps = {};
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
@@ -2440,9 +2456,22 @@ async function renderCityDroughts() {
           if (lastTitle[key] == null || sy > lastTitle[key].year) {
             lastTitle[key] = { year: sy, team };
           }
+          if (!cityChamps[city]) cityChamps[city] = [];
+          cityChamps[city].push({ year: sy, team, sport });
         }
       }
     }
+  }
+  // Backfill pre-1980 championships from the override dict so the lineage
+  // column can show e.g. Cleveland's 1948 Indians + 1964 Browns alongside
+  // their 2016 Cavs.
+  for (const key in PRE_1980_LAST_TITLE) {
+    const sepIdx = key.lastIndexOf('__');
+    const titleCity = key.slice(0, sepIdx);
+    const titleSport = key.slice(sepIdx + 2);
+    const [yr, teamName, note] = PRE_1980_LAST_TITLE[key];
+    if (!cityChamps[titleCity]) cityChamps[titleCity] = [];
+    cityChamps[titleCity].push({ year: yr, team: teamName, sport: titleSport, note });
   }
 
   // For each city that currently fields a team, compute drought + team-years.
@@ -2509,53 +2538,81 @@ async function renderCityDroughts() {
     const droughtStart = everWon ? bestTitleYear : earliestMarket;
     const drought = cityLatestSeason - droughtStart;
 
-    // Season-Years: sum each team's tenure-years inside the drought period.
-    // For every team ever in this market: in_drought = max(0,
-    //   min(team_end, cityLatestSeason) - max(team_start, droughtStart))
-    // team_start is extended via TEAM_MARKET_ENTRY for pre-1980 founders.
-    // The (drought-aligned) firstYear / lastYear are also what the chip
-    // year-range displays, so the chip shows "since when this team
-    // joined the current drought" rather than raw tenure.
+    // Season-Years: each team contributes the COUNT of completed seasons
+    // they played inside the drought period. For the title-winning team
+    // their drought starts the year AFTER the win (2016 Cavs win doesn't
+    // count toward the Cavs' own drought; 2017+ does). For other teams
+    // the drought_start year DOES count - they played that season and
+    // didn't win it.
+    //
+    // count = max(0, displayLast - displayFirst + 1) where displayFirst
+    // is (droughtStart + 1) for the title team, max(teamStart, droughtStart)
+    // for everyone else.
+    const computeDroughtRange = (teamRaw, teamSport) => {
+      const ten = cityTenures[teamSport] && cityTenures[teamSport][teamRaw];
+      if (!ten) return null;
+      let teamStart = ten.first;
+      if (TEAM_MARKET_ENTRY[teamRaw] != null && TEAM_MARKET_ENTRY[teamRaw] < teamStart) {
+        teamStart = TEAM_MARKET_ENTRY[teamRaw];
+      }
+      const teamEnd = ten.last;
+      const isTitleTeam = (teamRaw === bestTitleTeam && teamSport === bestTitleSport);
+      const displayFirst = isTitleTeam
+        ? droughtStart + 1
+        : Math.max(teamStart, droughtStart);
+      const displayLast = Math.min(teamEnd, cityLatestSeason);
+      const count = Math.max(0, displayLast - displayFirst + 1);
+      // refYear is the year shown when count == 0 (reigning team or
+      // tenure entirely before drought): title team -> their win year,
+      // others -> their last appearance.
+      const refYear = isTitleTeam ? droughtStart : Math.min(teamEnd, cityLatestSeason);
+      return { displayFirst, displayLast, count, refYear, isTitleTeam, teamStart, teamEnd };
+    };
+
     let teamYears = 0;
     const departedTeams = [];
     for (const sport in cityTenures) {
       for (const team in cityTenures[sport]) {
-        const ten = cityTenures[sport][team];
-        let teamStart = ten.first;
-        if (TEAM_MARKET_ENTRY[team] != null && TEAM_MARKET_ENTRY[team] < teamStart) {
-          teamStart = TEAM_MARKET_ENTRY[team];
-        }
-        const teamEnd = ten.last;
-        const droughtFirst = Math.max(teamStart, droughtStart);
-        const droughtLast  = Math.min(teamEnd,   cityLatestSeason);
-        const inDrought = Math.max(0, droughtLast - droughtFirst);
-        teamYears += inDrought;
+        const dr = computeDroughtRange(team, sport);
+        if (!dr) continue;
+        teamYears += dr.count;
         const sportTeamKey = `${sport}__${team}`;
-        if (!currentTeamKeys.has(sportTeamKey) && inDrought > 0) {
-          departedTeams.push({ team, sport, firstYear: droughtFirst, lastYear: droughtLast });
+        if (!currentTeamKeys.has(sportTeamKey) && dr.count > 0) {
+          departedTeams.push({
+            team, sport,
+            displayFirst: dr.displayFirst, displayLast: dr.displayLast,
+            count: dr.count, refYear: dr.refYear, isTitleTeam: dr.isTitleTeam,
+          });
         }
       }
     }
-    // Sort departed teams by most-recently-departed first.
-    departedTeams.sort((a, b) => b.lastYear - a.lastYear);
+    departedTeams.sort((a, b) => b.count - a.count);
 
-    // Annotate each current team with its drought-aligned year range:
-    // start = max(team_first, droughtStart), end = min(team_last, latestSeason).
-    // Same shape as the in_drought math above so the chip's '16-'25
-    // matches the team's contribution to Season-Years.
     const annotatedCurrentTeams = currentTeams.map(t => {
-      const ten = cityTenures[t.sport] && cityTenures[t.sport][t.team];
-      let teamFirst = ten ? ten.first : null;
-      if (TEAM_MARKET_ENTRY[t.team] != null
-          && teamFirst != null
-          && TEAM_MARKET_ENTRY[t.team] < teamFirst) {
-        teamFirst = TEAM_MARKET_ENTRY[t.team];
-      }
-      const teamLast = ten ? ten.last : null;
-      const firstYear = teamFirst != null ? Math.max(teamFirst, droughtStart) : droughtStart;
-      const lastYear  = teamLast  != null ? Math.min(teamLast, cityLatestSeason) : cityLatestSeason;
-      return { ...t, firstYear, lastYear };
+      const dr = computeDroughtRange(t.team, t.sport);
+      if (!dr) return { ...t, displayFirst: cityLatestSeason, displayLast: cityLatestSeason, count: 0, refYear: cityLatestSeason };
+      return {
+        ...t,
+        displayFirst: dr.displayFirst, displayLast: dr.displayLast,
+        count: dr.count, refYear: dr.refYear, isTitleTeam: dr.isTitleTeam,
+      };
     });
+
+    // Up to 3 most recent championships for the lineage display.
+    // Dedupe by (year, team, sport) since the same championship can appear
+    // in multiple snapshots within the same season-year (carryover - e.g.
+    // a Cup-winning team's finalsStatus=2 persists across snapshots until
+    // the next year's title moment overrides it).
+    const seenChamp = new Set();
+    const allChamps = [];
+    for (const c of (cityChamps[city] || [])) {
+      const k = `${c.year}__${c.team}__${c.sport}`;
+      if (seenChamp.has(k)) continue;
+      seenChamp.add(k);
+      allChamps.push(c);
+    }
+    allChamps.sort((a, b) => b.year - a.year);
+    const topChamps = allChamps.slice(0, 3);
 
     records.push({
       city, drought, teamYears, everWon, droughtStart,
@@ -2563,6 +2620,7 @@ async function renderCityDroughts() {
       sportsCount: currentSportsSet.size,
       teams: annotatedCurrentTeams,
       departedTeams,
+      topChamps,
     });
   }
 
@@ -2573,31 +2631,37 @@ async function renderCityDroughts() {
       ? ` <span class="single-sport-tag">1 sport</span>` : '';
     let lastCell;
     if (r.everWon) {
-      const shortTeam = r.bestTitleTeam
-        ? (TEAM_SHORT_NAME[r.bestTitleTeam] || r.bestTitleTeam)
-        : '';
-      const sportTag = r.bestTitleSport
-        ? `<span class="last-champ-sport">${r.bestTitleSport}</span>`
-        : '';
+      // Stack up to 3 most recent championships - top entry is the one
+      // driving the drought; entries 2 and 3 are lineage context.
+      const champLines = r.topChamps.map(c => {
+        const shortTeam = TEAM_SHORT_NAME[c.team] || c.team;
+        const sportTag = `<span class="last-champ-sport">${c.sport}</span>`;
+        const note = c.note ? ` <span class="champ-note">(${c.note})</span>` : '';
+        return `<div class="champ-line">${sportTag}${c.year} ${shortTeam}${note}</div>`;
+      }).join('');
       const reigningCls = r.drought === 0 ? 'reigning' : '';
-      const noteHtml = r.bestTitleNote
-        ? ` <span class="champ-note">(${r.bestTitleNote})</span>` : '';
-      lastCell = `<td class="${reigningCls}" style="white-space:nowrap">${sportTag}${r.droughtStart} ${shortTeam}${noteHtml}</td>`;
+      lastCell = `<td class="${reigningCls}" style="white-space:nowrap;vertical-align:top">${champLines}</td>`;
     } else {
-      lastCell = `<td style="color:#888;white-space:nowrap">Never (since ${r.droughtStart})</td>`;
+      lastCell = `<td style="color:#888;white-space:nowrap;vertical-align:top">Never (since ${r.droughtStart})</td>`;
     }
-    // Both current + departed chips show the team's drought-aligned year
-    // range ('60-'25) and the count of years inside the drought as the
-    // chip's number badge. Current teams keep their 👑 / 🥈; departed
-    // are faded. Combined list is sorted by years-in-drought desc so
-    // the highest-contributing teams float to the left.
+    // Both current + departed chips show the drought-aligned range + the
+    // count of seasons that team played inside the current drought.
+    // - count > 0 with multi-year span: '17-'24 Cavs: 8
+    // - count > 0 single year: '25 SD FC: 1
+    // - count == 0 (reigning team just won, or single edge case):
+    //     show their reference year only with 👑 if applicable
+    // Title teams have their win year EXCLUDED from the count (their
+    // 2016 was a championship season, not a drought season).
     const renderDroughtChip = (t, isDeparted) => {
       const shortName = TEAM_SHORT_NAME[t.team] || t.team;
-      const singleYear = t.firstYear === t.lastYear;
-      const range = singleYear
-        ? `'${String(t.firstYear).slice(-2)}`
-        : `'${String(t.firstYear).slice(-2)}-'${String(t.lastYear).slice(-2)}`;
-      const years = t.lastYear - t.firstYear;
+      let rangeStr;
+      if (t.count === 0) {
+        rangeStr = `'${String(t.refYear).slice(-2)}`;
+      } else if (t.displayFirst === t.displayLast) {
+        rangeStr = `'${String(t.displayFirst).slice(-2)}`;
+      } else {
+        rangeStr = `'${String(t.displayFirst).slice(-2)}-'${String(t.displayLast).slice(-2)}`;
+      }
       const classes = ['team-chip'];
       let extra = '';
       if (isDeparted) {
@@ -2607,16 +2671,14 @@ async function renderCityDroughts() {
       } else if (t.finalsStatus === 1) {
         classes.push('runner'); extra = ' 🥈';
       }
-      // Single-year teams (e.g. Tempo just arrived '25-'25 -> '25) drop
-      // the count entirely since years-in-drought = 0 isn't meaningful.
-      const yearsHtml = years > 0 ? `:<span class="z">${years}</span>` : '';
-      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}${yearsHtml}</span>`;
+      const yearsHtml = t.count > 0 ? `:<span class="z">${t.count}</span>` : '';
+      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr}</span> ${shortName}${extra}${yearsHtml}</span>`;
     };
     const allChips = [
       ...r.teams.map(t => ({ ...t, _isDeparted: false })),
       ...r.departedTeams.map(d => ({ ...d, _isDeparted: true })),
     ];
-    allChips.sort((a, b) => (b.lastYear - b.firstYear) - (a.lastYear - a.firstYear));
+    allChips.sort((a, b) => b.count - a.count);
     const chipsHtml = allChips.map(t => renderDroughtChip(t, t._isDeparted)).join('');
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
