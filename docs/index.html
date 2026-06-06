@@ -1441,7 +1441,20 @@ const CITY_SPORTS = [
 ];
 
 // Aggregate a list of {sport, label, teams: [{rating, display_name|team}]} -> metros
-// with combined-z. Used both for current snapshot and historical year aggregation.
+// with combined-z (Stouffer's method) AND peak-z (positive-only Stouffer).
+//
+// Best-per-sport filter: cities like NYC (Knicks+Nets), LA (Dodgers+Angels),
+// Chicago (Cubs+White Sox) etc. have multiple teams in the same sport. Without
+// filtering, the city's per-sport contribution gets averaged across those
+// teams, which can artificially deflate (worse team drags) or inflate
+// (multi-team city gets larger Stouffer n than single-team rivals). We keep
+// only the best team per (city, sport) pair so each city contributes at most
+// 6 teams (one per sport).
+//
+// Score (combined-z) = sum(z) / sqrt(n_sports_represented) - measures balance
+//                      across the city's sports portfolio.
+// Peak (peak-z)      = sum(max(0, z)) / sqrt(n_positive) - measures upside,
+//                      ignoring drag from below-average teams.
 function aggregateMetros(sportPayloads) {
   // Z-score each team within its sport.
   for (const s of sportPayloads) {
@@ -1456,27 +1469,47 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  const metros = {};
+  // Best team per (metro, sport).
+  const bestByCitySport = {};  // "metro__sport" -> {metro, sport, team, rating, zScore}
   for (const s of sportPayloads) {
     for (const t of s.teams) {
       if (t.zScore == null) continue;
       const teamName = t.display_name || t.team || t.name;
       const metro = TEAM_TO_METRO[teamName];
       if (!metro) continue;
-      if (!metros[metro]) metros[metro] = { name: metro, teams: [] };
-      metros[metro].teams.push({
-        sport:  s.label,
-        team:   teamName,
-        rating: t.rating,
-        zScore: t.zScore,
-      });
+      const key = `${metro}__${s.label}`;
+      if (!bestByCitySport[key] || t.zScore > bestByCitySport[key].zScore) {
+        bestByCitySport[key] = {
+          metro, sport: s.label, team: teamName,
+          rating: t.rating, zScore: t.zScore,
+        };
+      }
     }
   }
 
+  // Aggregate by metro.
+  const metros = {};
+  for (const e of Object.values(bestByCitySport)) {
+    if (!metros[e.metro]) metros[e.metro] = { name: e.metro, teams: [] };
+    metros[e.metro].teams.push({
+      sport:  e.sport,
+      team:   e.team,
+      rating: e.rating,
+      zScore: e.zScore,
+    });
+  }
+
   return Object.values(metros).map(m => {
+    const n = m.teams.length;
     const sumZ = m.teams.reduce((a, t) => a + t.zScore, 0);
-    m.combinedZ = sumZ / Math.sqrt(m.teams.length);
-    m.nTeams = m.teams.length;
+    m.combinedZ = sumZ / Math.sqrt(n);
+    m.nTeams = n;
+    // Peak: positives-only Stouffer.
+    const positives = m.teams.filter(t => t.zScore > 0);
+    m.nPositive = positives.length;
+    m.peakZ = positives.length > 0
+      ? positives.reduce((a, t) => a + t.zScore, 0) / Math.sqrt(positives.length)
+      : null;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
@@ -1546,7 +1579,8 @@ function buildRankingsTable(metros) {
       <thead><tr>
         <th class="num">#</th>
         <th>City</th>
-        <th class="num">Score</th>
+        <th class="num" title="Stouffer's combined-z across the city's best team per sport. Measures balance: rewards consistency, penalizes drag teams.">Score</th>
+        <th class="num" title="Stouffer's of positives only (drags ignored). Measures upside: how strong are the city's good teams.">Peak</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>
@@ -1557,11 +1591,13 @@ function buildRankingsTable(metros) {
             const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
             return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
           }).join('');
-          const meta = m.nTeams === 1 ? ` <span class="city-meta">single team</span>` : '';
+          const meta = m.nTeams === 1 ? ` <span class="city-meta">single sport</span>` : '';
+          const peakStr = m.peakZ != null ? '+' + m.peakZ.toFixed(2) : '-';
           return `<tr class="${cls}">
             <td class="num">${i + 1}</td>
             <td class="city">${m.name}${meta}</td>
             <td class="num score">${(m.combinedZ >= 0 ? '+' : '') + m.combinedZ.toFixed(2)}</td>
+            <td class="num" style="color:#1a6b8a;font-weight:700">${peakStr}</td>
             <td>${chips}</td>
           </tr>`;
         }).join('')}
@@ -1674,7 +1710,7 @@ function renderSingleCityChart(cityName, data) {
   const tableEl = document.getElementById('ch-table');
 
   // For each snapshot, pull out this city's metro entry if any.
-  const points = [];  // {date, label, year, combinedZ, teams}
+  const points = [];  // {date, label, year, combinedZ, peakZ, teams}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
     if (!m) continue;
@@ -1683,6 +1719,7 @@ function renderSingleCityChart(cityName, data) {
       label:     s.label,
       year:      s.year,
       combinedZ: m.combinedZ,
+      peakZ:     m.peakZ,
       teams:     m.teams,
       kind:      s.kind,
     });
@@ -1696,6 +1733,7 @@ function renderSingleCityChart(cityName, data) {
       label:     'Current (Live)',
       year:      new Date().getFullYear(),
       combinedZ: liveMetro.combinedZ,
+      peakZ:     liveMetro.peakZ,
       teams:     liveMetro.teams,
       kind:      'current',
     });
@@ -1714,8 +1752,14 @@ function renderSingleCityChart(cityName, data) {
   const dates = points.map(p => Date.parse(p.date));
   const xMin = dates[0];
   const xMax = dates[dates.length - 1];
-  let yMin = Math.min(...points.map(p => p.combinedZ));
-  let yMax = Math.max(...points.map(p => p.combinedZ));
+  // Y range across both Score and Peak.
+  const allYVals = [];
+  for (const p of points) {
+    allYVals.push(p.combinedZ);
+    if (p.peakZ != null) allYVals.push(p.peakZ);
+  }
+  let yMin = Math.min(...allYVals);
+  let yMax = Math.max(...allYVals);
   const pad = Math.max((yMax - yMin) * 0.1, 0.3);
   yMin -= pad; yMax += pad;
   if (yMin > -0.5) yMin = -0.5;
@@ -1738,19 +1782,35 @@ function renderSingleCityChart(cityName, data) {
   for (let y = yearMin; y <= yearMax; y += xStep) xTicks.push(y);
   if (xTicks[xTicks.length - 1] !== yearMax) xTicks.push(yearMax);
 
-  // Build path. Color = pink to match accent.
-  const color = '#ff6eb4';
-  let pathD = '';
+  // Two paths: Score (pink) and Peak (teal). Peak is null when all teams
+  // are below mean - break the line at those points.
+  const scoreColor = '#ff6eb4';
+  const peakColor  = '#1a6b8a';
+  let scorePath = '';
   for (let i = 0; i < points.length; i++) {
     const x = xScale(points[i].date).toFixed(1);
     const y = yScale(points[i].combinedZ).toFixed(1);
-    pathD += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+    scorePath += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+  }
+  let peakPath = '';
+  let peakPen = false;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].peakZ == null) { peakPen = false; continue; }
+    const x = xScale(points[i].date).toFixed(1);
+    const y = yScale(points[i].peakZ).toFixed(1);
+    peakPath += (peakPen ? 'L' : 'M') + x + ',' + y + ' ';
+    peakPen = true;
   }
 
   chartEl.innerHTML = `
     <div class="city-chart-wrap">
       <h3>${cityName} - combined z over time</h3>
-      <div class="chart-sub">Each dot is a snapshot moment (sport championship or Dec 31 year-end). Hover the dots in the rankings table below for detail.</div>
+      <div class="chart-sub">
+        Each dot is a snapshot moment (sport championship or Dec 31 year-end).
+        <span style="display:inline-block;width:10px;height:3px;background:${scoreColor};vertical-align:2px;margin:0 4px"></span> Score (balance)
+        &nbsp;
+        <span style="display:inline-block;width:10px;height:3px;background:${peakColor};vertical-align:2px;margin:0 4px"></span> Peak (upside)
+      </div>
       <svg class="city-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
         <g class="grid">
           ${yTicks.map(v => `<line x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(v).toFixed(1)}" y2="${yScale(v).toFixed(1)}"/>`).join('')}
@@ -1764,13 +1824,15 @@ function renderSingleCityChart(cityName, data) {
           }).join('')}
           ${yTicks.map(v => `<text x="${M.left - 6}" y="${(yScale(v) + 3.5).toFixed(1)}" text-anchor="end">${v >= 0 ? '+' + v.toFixed(1) : v.toFixed(1)}</text>`).join('')}
         </g>
-        <path class="city-line" d="${pathD}" stroke="${color}" fill="none" stroke-width="2"/>
-        ${points.map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.combinedZ).toFixed(1)}" r="3" fill="${color}"><title>${p.label} - ${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</title></circle>`).join('')}
+        <path class="city-line" d="${peakPath}" stroke="${peakColor}" fill="none" stroke-width="2" opacity="0.85"/>
+        <path class="city-line" d="${scorePath}" stroke="${scoreColor}" fill="none" stroke-width="2"/>
+        ${points.filter(p => p.peakZ != null).map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.peakZ).toFixed(1)}" r="2.5" fill="${peakColor}" opacity="0.7"><title>${p.label} - Peak ${(p.peakZ >= 0 ? '+' : '') + p.peakZ.toFixed(2)}</title></circle>`).join('')}
+        ${points.map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.combinedZ).toFixed(1)}" r="3" fill="${scoreColor}"><title>${p.label} - Score ${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</title></circle>`).join('')}
       </svg>
     </div>
   `;
 
-  // Table of snapshots (newest first)
+  // Table of snapshots (newest first) with Score + Peak columns.
   const rows = [...points].reverse().map((p, i) => {
     const chips = p.teams.map(t => {
       const tcls = t.zScore >= 0 ? 'positive' : 'negative';
@@ -1778,10 +1840,12 @@ function renderSingleCityChart(cityName, data) {
       return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
     }).join('');
     const cls = p.combinedZ >= 0 ? 'positive' : 'negative';
+    const peakStr = p.peakZ != null ? '+' + p.peakZ.toFixed(2) : '-';
     return `<tr class="${cls}">
       <td class="num">${p.date}</td>
       <td class="city">${p.label}</td>
       <td class="num score">${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</td>
+      <td class="num" style="color:#1a6b8a;font-weight:700">${peakStr}</td>
       <td>${chips}</td>
     </tr>`;
   }).join('');
@@ -1791,6 +1855,7 @@ function renderSingleCityChart(cityName, data) {
         <th>Date</th>
         <th>Snapshot</th>
         <th class="num">Score</th>
+        <th class="num">Peak</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -1812,17 +1877,21 @@ async function renderGoatYears() {
     return;
   }
 
-  // (city, year) -> { peakSnap, peakCombinedZ }
+  // (city, year) -> snapshot moment with highest peakZ in that year. peakZ
+  // is the primary sort key since "GOAT" implies upside; the moment's
+  // combinedZ (Score) and team breakdown are surfaced alongside for context.
   const peaks = new Map();
   for (const s of data.snapshotMetros) {
     for (const m of s.metros) {
+      if (m.peakZ == null) continue;
       const key = `${m.name}__${s.year}`;
       const prev = peaks.get(key);
-      if (!prev || m.combinedZ > prev.combinedZ) {
+      if (!prev || m.peakZ > prev.peakZ) {
         peaks.set(key, {
           city:      m.name,
           year:      s.year,
           combinedZ: m.combinedZ,
+          peakZ:     m.peakZ,
           label:     s.label,
           date:      s.date,
           kind:      s.kind,
@@ -1834,7 +1903,7 @@ async function renderGoatYears() {
   }
 
   const top = [...peaks.values()]
-    .sort((a, b) => b.combinedZ - a.combinedZ)
+    .sort((a, b) => b.peakZ - a.peakZ)
     .slice(0, 50);
 
   const rows = top.map((p, i) => {
@@ -1843,25 +1912,28 @@ async function renderGoatYears() {
       const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
       return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
     }).join('');
-    const meta = p.nTeams === 1 ? ` <span class="city-meta">single team</span>` : '';
+    const meta = p.nTeams === 1 ? ` <span class="city-meta">single sport</span>` : '';
+    const scoreStr = (p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2);
     return `<tr class="positive">
       <td class="num">${i + 1}</td>
       <td class="city">${p.city}${meta}</td>
       <td class="num">${p.year}</td>
-      <td class="num score">+${p.combinedZ.toFixed(2)}</td>
+      <td class="num" style="color:#1a6b8a;font-weight:700">+${p.peakZ.toFixed(2)}</td>
+      <td class="num score">${scoreStr}</td>
       <td><span style="color:#888;font-size:11px">${p.label}</span></td>
       <td>${chips}</td>
     </tr>`;
   }).join('');
 
   el.innerHTML = `
-    <p class="snap-meta" style="margin-bottom:14px">Top 50 (city, year) peaks across the full snapshot history. For each (city, year) pair, the peak combined-z across all snapshot moments in that year is shown.</p>
+    <p class="snap-meta" style="margin-bottom:14px">Top 50 (city, year) Peak moments across the full snapshot history. For each (city, year) pair, the snapshot with the highest Peak (positive-only Stouffer) is surfaced; Score (combined-z with drags) shown alongside for context.</p>
     <table class="city-index">
       <thead><tr>
         <th class="num">#</th>
         <th>City</th>
         <th class="num">Year</th>
-        <th class="num">Peak Score</th>
+        <th class="num" title="Positive-only Stouffer combined-z (drags ignored). Measures the city's upside at this moment.">Peak</th>
+        <th class="num" title="Stouffer's combined-z (all teams). Measures balance.">Score</th>
         <th>Peak Moment</th>
         <th>Teams</th>
       </tr></thead>
