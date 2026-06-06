@@ -2699,15 +2699,12 @@ async function renderCityDroughts() {
       }
       const classes = ['team-chip'];
       let extra = '';
-      if (isDeparted) classes.push('departed');
-      // Title-team gets the 👑 regardless of current snapshot status -
-      // they ARE the city's most recent champion (e.g. SD Chargers via
-      // 1963 AFL even though they're departed; Cleveland Cavs via 2016
-      // even though they're not currently reigning). Otherwise fall back
-      // to the current snapshot's finalsStatus for active champ / RU.
-      if (t.isTitleTeam) {
-        if (!isDeparted) classes.push('win');
-        extra = ' 👑';
+      // Badges only for the most-recent (current snapshot) champion / RU,
+      // matching how the other tabs render. Drought-defining past champions
+      // who aren't currently reigning (Cleveland Cavs 2016, etc.) get no
+      // marker.
+      if (isDeparted) {
+        classes.push('departed');
       } else if (t.finalsStatus === 2) {
         classes.push('win'); extra = ' 👑';
       } else if (t.finalsStatus === 1) {
