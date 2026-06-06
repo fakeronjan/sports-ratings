@@ -13,7 +13,7 @@
     color: #1a1a1a;
     font-size: 14px;
     line-height: 1.5;
-    /* No min-height:100vh — would feedback-loop with the iframe auto-resize
+    /* No min-height:100vh - would feedback-loop with the iframe auto-resize
        (100vh inside an iframe = iframe height; taller iframe → taller body
        → posts taller → grows forever). */
   }
@@ -265,7 +265,7 @@
   footer a { color: #1a6b8a; text-decoration: none; }
   footer a:hover { text-decoration: underline; }
 
-  /* Fleet nav strip — same as sister sites */
+  /* Fleet nav strip - same as sister sites */
   .fleet-nav {
     background: #0e4a5f;
     display: flex;
@@ -396,7 +396,7 @@ const GH = 'https://fakeronjan.github.io';
 const SQ = 'https://fakeronjan.com';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Per-site badge functions — copied verbatim from each site's finishBadge so
+// Per-site badge functions - copied verbatim from each site's finishBadge so
 // labels, emojis, AND tooltips match the source site exactly.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -436,7 +436,7 @@ function badgeSAKIC(t) {
   return '';
 }
 
-// SALAAM (NCAA football) — source has no title attrs; add descriptive ones
+// SALAAM (NCAA football) - source has no title attrs; add descriptive ones
 // here so hover-over works in the dashboard (user-requested).
 function badgeSALAAM(t) {
   if (t.cfp_status === 2) {
@@ -450,7 +450,7 @@ function badgeSALAAM(t) {
 
 // Card-only badge for ZIDANE: CL Champion/Runner-Up + league champion
 // (flag-only label to save space). EL, domestic cup, and the TREBLE
-// composite are intentionally omitted here — the full-detail badges
+// composite are intentionally omitted here - the full-detail badges
 // live on the ZIDANE site itself.
 const ZIDANE_LEAGUE_FLAG = {
   'EPL':        '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
@@ -495,7 +495,7 @@ function badgeMESSI(t) {
   }).join('');
 }
 
-// CARMELO (intl basketball) — same shape as MESSI; crown reserved for the
+// CARMELO (intl basketball) - same shape as MESSI; crown reserved for the
 // Olympics (basketball's pinnacle), 🏆 for other tournament golds.
 function badgeCARMELO(t) {
   const fs = t.tournament_finishes;
@@ -509,7 +509,7 @@ function badgeCARMELO(t) {
   }).join('');
 }
 
-// ICHIRO (intl baseball) — crown reserved for the WBC (baseball's pinnacle).
+// ICHIRO (intl baseball) - crown reserved for the WBC (baseball's pinnacle).
 function badgeICHIRO(t) {
   const fs = t.tournament_finishes;
   if (!fs || !fs.length) return '';
@@ -554,12 +554,12 @@ function escapeHtml(s) {
 // Sites whose current_standings.json doesn't carry regular_record /
 // playoff_record (they only ship combined `record`). For these we pull the
 // last snapshot from the per-season detail JSON so we can split Reg vs
-// Playoffs. ZIDANE/MESSI don't have a playoff concept — they use combined
+// Playoffs. ZIDANE/MESSI don't have a playoff concept - they use combined
 // or no record at all. COBI already has the split in current_standings.
 const PLAYOFF_SPORTS = new Set(['duncan', 'lobo', 'dillon', 'salaam', 'griffey', 'sakic']);
 
 // Soccer sites: record is W-D-L, points (3/1/0) get their own column, and
-// playoff standings are intentionally not shown — knockout outcomes are
+// playoff standings are intentionally not shown - knockout outcomes are
 // surfaced as badges (CL/EL/cup/MLS Cup/Shield) instead.
 const SOCCER_SPORTS = new Set(['zidane', 'messi', 'cobi']);
 const HOCKEY_SPORTS = new Set(['sakic']);
@@ -676,7 +676,7 @@ async function loadWLS(repo, badgeFn, opts) {
 }
 
 const TENNIS_SLAM_FLAG = { AO: '🇦🇺', FO: '🇫🇷', Wim: '🇬🇧', US: '🇺🇸' };
-// Right-side widths: 60 + 110 + 50 = 220px — matches the 226px convention
+// Right-side widths: 60 + 110 + 50 = 220px - matches the 226px convention
 // LAVIN's column comment cites (the old hardcoded TENNIS GOAT card used the
 // same 4×44 + 50 layout). Keeps Player-column whitespace consistent with
 // the fleet's other cards.
@@ -720,7 +720,7 @@ async function loadTennisCurrent(gender) {
 }
 
 // Widths chosen so the 3 middle cols sum to 176px (same as TENNIS's
-// 4×44 num cols) — keeps the Player column the same width as Tennis's.
+// 4×44 num cols) - keeps the Player column the same width as Tennis's.
 const LAVIN_COLS = [
   { label: 'Player',   cls: 'name' },
   { label: 'Sn',       cls: 'num',    width: 32 },
