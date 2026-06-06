@@ -1564,6 +1564,20 @@ const CITY_SPORTS = [
 //
 // Vibe = max-over-K Stouffer of positive z-scores. Captures the strongest
 //        cluster of above-average teams the city is fielding. Always >= 0.
+
+// City sort: Vibe desc primary, then tiebreakers for cities tied at the
+// bottom (most commonly tied at Vibe = 0 with no positive contributors).
+// Tiebreaker 1: total team count - a Washington-style portfolio where
+// every one of 6 teams is below average reads as worse than a single
+// marginally-bad team. More teams -> lower rank.
+// Tiebreaker 2: sum of below-average z's - the deeper the drag, the
+// lower the rank.
+function vibeRankCompare(a, b) {
+  if (b.vibeZ !== a.vibeZ) return b.vibeZ - a.vibeZ;
+  if (a.nTeams !== b.nTeams) return a.nTeams - b.nTeams;
+  return b.sumNegZ - a.sumNegZ;
+}
+
 function aggregateMetros(sportPayloads) {
   // Z-score each team. The mean is per-snapshot (ratings are already
   // near-zero-centered by design), but the std uses the sport's 5-year
@@ -1675,6 +1689,15 @@ function aggregateMetros(sportPayloads) {
     // completed yet).
     m.vibeContributors = positiveTeams.slice(0, bestK);
     m.nPositive = positiveTeams.length;
+    // Sum of below-average team z's. Used as a tiebreaker for cities
+    // tied at Vibe = 0 (or any Vibe tie) - more drag = worse rank, so
+    // Washington's all-bad portfolio reads as worse than a single
+    // marginally-bad team. Uses raw zScore not effectiveZ because the
+    // championship discount is uniform for non-finalists (75%) so it
+    // doesn't change relative ordering.
+    m.sumNegZ = m.teams
+      .filter(t => t.zScore < 0)
+      .reduce((s, t) => s + t.zScore, 0);
     m.teams.sort((a, b) => b.effectiveZ - a.effectiveZ);
     return m;
   });
@@ -1747,7 +1770,7 @@ async function ensureCityData() {
 
     // Current snapshot (live)
     const currentMetros = aggregateMetros(sportPayloads);
-    currentMetros.sort((a, b) => b.vibeZ - a.vibeZ);
+    currentMetros.sort(vibeRankCompare);
 
     // Historical snapshots: for each pre-computed snapshot, group teams by
     // sport then aggregate by metro via the same TEAM_TO_METRO mapping.
@@ -1765,7 +1788,7 @@ async function ensureCityData() {
         });
       }
       const metros = aggregateMetros(Object.values(grouped));
-      metros.sort((a, b) => b.vibeZ - a.vibeZ);
+      metros.sort(vibeRankCompare);
       return {
         date:           snap.date,
         label:          snap.label,
@@ -2172,6 +2195,7 @@ async function renderGoatYears() {
         yearly.set(yk, {
           city: m.name, year: s.year,
           vibeZ: m.vibeZ, sig,
+          nTeams: m.nTeams, sumNegZ: m.sumNegZ,
           label: s.label, date: s.date,
           teams: m.teams, nSports: m.nSports,
         });
@@ -2193,7 +2217,7 @@ async function renderGoatYears() {
   }
 
   const top = [...peaks.values()]
-    .sort((a, b) => b.vibeZ - a.vibeZ)
+    .sort(vibeRankCompare)
     .slice(0, 50);
 
   const rows = top.map((p, i) => {
