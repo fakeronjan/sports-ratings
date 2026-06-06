@@ -2699,7 +2699,7 @@ async function renderCityDroughts() {
       }
       const classes = ['team-chip'];
       let extra = '';
-      let hasBadge = false;
+      let suppressCount = false;
       // Badges only for the most-recent (current snapshot) champion / RU,
       // matching how the other tabs render. Drought-defining past champions
       // who aren't currently reigning (Cleveland Cavs 2016, etc.) get no
@@ -2707,14 +2707,17 @@ async function renderCityDroughts() {
       if (isDeparted) {
         classes.push('departed');
       } else if (t.finalsStatus === 2) {
-        classes.push('win'); extra = ' 👑'; hasBadge = true;
+        classes.push('win'); extra = ' 👑'; suppressCount = true;
       } else if (t.finalsStatus === 1) {
-        classes.push('runner'); extra = ' 🥈'; hasBadge = true;
+        classes.push('runner'); extra = ' 🥈';
+        // 🥈 still shows the count - they LOST the Finals, so they're
+        // still in drought.
       }
-      // Every chip shows EITHER a 👑 / 🥈 badge OR a season-count
-      // ":N" number (zero-count teams included, so the user can tell
-      // at a glance whether a chip is reigning vs zero-drought).
-      const yearsHtml = hasBadge ? '' : `:<span class="z">${t.count}</span>`;
+      // 👑 reigning champ: badge only (count is always 0 anyway).
+      // 🥈 runner-up: badge + count (count tells you how long they've
+      //   been in drought despite reaching the Finals).
+      // Anyone else: count only (0+).
+      const yearsHtml = suppressCount ? '' : `:<span class="z">${t.count}</span>`;
       return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr}</span> ${shortName}${extra}${yearsHtml}</span>`;
     };
     const allChips = [
