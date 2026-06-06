@@ -158,13 +158,9 @@
   .linked:hover { text-decoration: underline; }
   .city-cell.linked, .year-cell.linked { color: #1a6b8a; }
 
-  .score-cell {
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: #1a6b8a;
-    text-align: right;
-  }
-  .peak-cell {
+  /* Vibe = city's max-over-K Stouffer of positive z-scores - the
+     concentrated upside signal. Gold to feel a little flashy / fun. */
+  .vibe-cell {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #c8a84b;
@@ -219,7 +215,7 @@
   .team-chip.win  .z { color: #1a6b8a; font-weight: 700; }
   .team-chip.runner { background: #f0f0f0; }
   .team-chip.runner .sport-tag { background: #888; }
-  /* Bench teams: shown for completeness but don't count toward Score / Peak. */
+  /* Bench teams: shown for completeness but don't count toward Vibe. */
   .team-chip.bench { opacity: 0.55; }
   .team-chip.bench .sport-tag { background: #aaa; }
 
@@ -607,7 +603,7 @@
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="goat-table-view" class="view tab">
-    <p class="data-note">Top 50 (city, year) peaks across 1980-present · Peak counts only above-average teams; Score includes the drag from below-average ones · Tampa Bay 2021 (Bucs SB + Lightning Cup + Rays WS), Boston 2007 (Patriots 16-0 + Red Sox WS), and LA 2002 sit near the top.</p>
+    <p class="data-note">Top 50 city-year vibes across 1980-present · Vibe captures the strongest cluster of above-average teams a city was fielding at one rating window · LA 2002 (Lakers + Angels + Galaxy), Boston 2008 (Celtics + Pats 18-1 + Sox), and Tampa Bay 2021 (Bucs + Lightning + Rays) lead.</p>
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -1548,10 +1544,8 @@ const CITY_SPORTS = [
 // only the best team per (city, sport) pair so each city contributes at most
 // 6 teams (one per sport).
 //
-// Score (combined-z) = sum(z) / sqrt(n_sports_represented) - measures balance
-//                      across the city's sports portfolio.
-// Peak (peak-z)      = sum(max(0, z)) / sqrt(n_positive) - measures upside,
-//                      ignoring drag from below-average teams.
+// Vibe = max-over-K Stouffer of positive z-scores. Captures the strongest
+//        cluster of above-average teams the city is fielding. Always >= 0.
 function aggregateMetros(sportPayloads) {
   // Z-score each team. The mean is per-snapshot (ratings are already
   // near-zero-centered by design), but the std uses the sport's 5-year
@@ -1586,8 +1580,8 @@ function aggregateMetros(sportPayloads) {
 
   // Collect ALL teams per metro. We display the full roster on the team
   // chips (NYC users want to see Knicks AND Nets, not just whichever is
-  // higher rated this snapshot), but the Score / Peak math still uses only
-  // the BEST team per (city, sport) pair so multi-team-per-sport metros
+  // higher rated this snapshot), but the Vibe math still uses only the
+  // BEST team per (city, sport) pair so multi-team-per-sport metros
   // don't artificially inflate their Stouffer n.
   const metros = {};
   for (const s of sportPayloads) {
@@ -1611,7 +1605,7 @@ function aggregateMetros(sportPayloads) {
   }
 
   // Mark the best team per (metro, sport) - those are the ones that
-  // contribute to Score / Peak. The others are display-only.
+  // contribute to Vibe. The others are display-only.
   for (const m of Object.values(metros)) {
     const bestPerSport = {};
     for (const t of m.teams) {
@@ -1626,32 +1620,29 @@ function aggregateMetros(sportPayloads) {
 
   return Object.values(metros).map(m => {
     const contributors = m.teams.filter(t => t.isContributor);
-    const n = contributors.length;
-    const sumZ = contributors.reduce((a, t) => a + t.zScore, 0);
-    m.combinedZ = sumZ / Math.sqrt(n);
-    m.nTeams = n;
-    // Peak: max-over-K Stouffer of positive z-scores. Sort contributors'
-    // positive z's descending, try each cumulative top-K window, take the
-    // best. This formulation:
+    m.nTeams = contributors.length;
+    // Vibe: max-over-K Stouffer of POSITIVE z-scores. Sort positive z's
+    // descending, try each cumulative top-K window, take the best.
     //   - rewards concentrated upside (Boston 2004's Patriots + Red Sox
     //     read at their honest +3.15 instead of being diluted by the
-    //     Celtics drag in the sqrt(n_total) denominator)
-    //   - doesn't suffer the sqrt(n_positive) artifact where removing a
-    //     marginal positive INCREASED Peak (here we pick the K that
-    //     maximizes, so adding a small positive never hurts)
-    //   - requires no arbitrary threshold
-    // User direction 2026-06-07.
+    //     Celtics drag in a sqrt(n_total) denominator)
+    //   - never suffers the old sqrt(n_positive) artifact where removing
+    //     a marginal positive INCREASED the score (here we pick the K
+    //     that maximizes, so adding or removing a small positive never
+    //     drops Vibe)
+    //   - needs no arbitrary threshold
+    // Always >= 0 (a city with no positive contributors gets Vibe = 0).
     const sortedPos = contributors.map(t => t.zScore)
       .filter(z => z > 0)
       .sort((a, b) => b - a);
-    let bestPeak = 0;
+    let bestVibe = 0;
     let runningSum = 0;
     for (let k = 1; k <= sortedPos.length; k++) {
       runningSum += sortedPos[k - 1];
       const candidate = runningSum / Math.sqrt(k);
-      if (candidate > bestPeak) bestPeak = candidate;
+      if (candidate > bestVibe) bestVibe = candidate;
     }
-    m.peakZ = bestPeak;
+    m.vibeZ = bestVibe;
     m.nPositive = sortedPos.length;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
@@ -1725,7 +1716,7 @@ async function ensureCityData() {
 
     // Current snapshot (live)
     const currentMetros = aggregateMetros(sportPayloads);
-    currentMetros.sort((a, b) => b.combinedZ - a.combinedZ);
+    currentMetros.sort((a, b) => b.vibeZ - a.vibeZ);
 
     // Historical snapshots: for each pre-computed snapshot, group teams by
     // sport then aggregate by metro via the same TEAM_TO_METRO mapping.
@@ -1743,7 +1734,7 @@ async function ensureCityData() {
         });
       }
       const metros = aggregateMetros(Object.values(grouped));
-      metros.sort((a, b) => b.combinedZ - a.combinedZ);
+      metros.sort((a, b) => b.vibeZ - a.vibeZ);
       return {
         date:           snap.date,
         label:          snap.label,
@@ -1818,8 +1809,7 @@ function buildRankingsTable(metros) {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th class="num">Score</th>
-        <th class="num">Peak</th>
+        <th class="num">Vibe</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>
@@ -1829,8 +1819,7 @@ function buildRankingsTable(metros) {
           return `<tr>
             <td class="rank-cell">${i + 1}</td>
             <td class="city-cell linked" data-city-link="${m.name}">${m.name}${meta}</td>
-            <td class="num score-cell">${fmtScore(m.combinedZ)}</td>
-            <td class="num peak-cell">${fmtScore(m.peakZ)}</td>
+            <td class="num vibe-cell">${fmtScore(m.vibeZ)}</td>
             <td>${chips}</td>
           </tr>`;
         }).join('')}
@@ -1995,7 +1984,7 @@ function renderSingleCityChart(cityName, data) {
   // season's wrap), so we only fire the trophy when the team's sport
   // matches the snapshot's kind. Otherwise the chart would emit a 👑 at
   // every subsequent moment in the year.
-  const points = [];  // {date, label, year, combinedZ, peakZ, teams, hasChamp, hasRu}
+  const points = [];  // {date, label, year, vibeZ, teams, hasChamp, hasRu}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
     if (!m) continue;
@@ -2007,7 +1996,7 @@ function renderSingleCityChart(cityName, data) {
     const hasRu    = m.teams.some(t => t.finalsStatus === 1 && trophySports.has(t.sport));
     points.push({
       date: s.date, label: s.label, year: s.year,
-      combinedZ: m.combinedZ, peakZ: m.peakZ,
+      vibeZ: m.vibeZ,
       teams: m.teams, kind: s.kind,
       hasChamp, hasRu,
     });
@@ -2021,29 +2010,27 @@ function renderSingleCityChart(cityName, data) {
 
   wrap.style.display = 'block';
 
-  // Fleet chart pattern: full container width, ~180px tall, gradient
-  // polyline (teal #1a6b8a above zero, pink #ff6eb4 below). No dots on
-  // the line. Trophy markers (👑 / 🥈) above the line at championship
-  // moments, hover-titled with the source sport's team.
+  // Single Vibe line in gold (#c8a84b) - Vibe is always >= 0 (max-over-K
+  // of positive z-scores), so the chart floor sits at 0 with no gradient
+  // or zero-crossing pivot to worry about. Trophy markers (👑 / 🥈) sit
+  // above the line at championship moments, hover-titled with the source
+  // sport's team.
   const W = svg.parentElement.clientWidth - 32;
   const H = 220;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
   const CTOP = 16, CBOT = 184;
-  // Y range across Score series; force symmetric around zero so the
-  // gradient pivot reads cleanly.
-  let absMax = 0;
+  let maxVibe = 0;
   for (const p of points) {
-    if (Math.abs(p.combinedZ) > absMax) absMax = Math.abs(p.combinedZ);
+    if (p.vibeZ > maxVibe) maxVibe = p.vibeZ;
   }
-  const CHART_MAX = Math.max(2, Math.ceil(absMax * 1.2));
-  const CHART_MIN = -CHART_MAX;
+  const CHART_MAX = Math.max(2, Math.ceil(maxVibe * 1.15));
 
   const px = (i) => (i / (points.length - 1)) * (W - 20) + 10;
-  const py = (v) => CBOT - ((v - CHART_MIN) / (CHART_MAX - CHART_MIN)) * (CBOT - CTOP);
+  const py = (v) => CBOT - (v / CHART_MAX) * (CBOT - CTOP);
   const zeroY = py(0);
 
-  const polyPoints = points.map((p, i) => `${px(i).toFixed(1)},${py(p.combinedZ).toFixed(1)}`).join(' ');
+  const polyPoints = points.map((p, i) => `${px(i).toFixed(1)},${py(p.vibeZ).toFixed(1)}`).join(' ');
 
   // X-axis labels: year every few years depending on span.
   const yearMin = points[0].year;
@@ -2070,7 +2057,7 @@ function renderSingleCityChart(cityName, data) {
     const wins = p.teams.filter(t => t.finalsStatus === (p.hasChamp ? 2 : 1));
     const tip = wins.map(t => `${t.sport} ${t.team} ${p.hasChamp ? 'champion' : 'runner-up'} (${p.year})`).join(' / ');
     const x = px(i);
-    const y = Math.max(14, py(p.combinedZ) - 12);
+    const y = Math.max(14, py(p.vibeZ) - 12);
     trophies.push(
       `<g style="cursor:help">
         <title>${tip}</title>
@@ -2081,18 +2068,12 @@ function renderSingleCityChart(cityName, data) {
   });
 
   svg.innerHTML = `
-    <defs>
-      <linearGradient id="ch-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${H}">
-        <stop offset="${(zeroY / H - 0.0001).toFixed(4)}" stop-color="#1a6b8a"/>
-        <stop offset="${(zeroY / H + 0.0001).toFixed(4)}" stop-color="#ff6eb4"/>
-      </linearGradient>
-    </defs>
     <line x1="10" y1="${zeroY.toFixed(1)}" x2="${(W - 10).toFixed(1)}" y2="${zeroY.toFixed(1)}"
           stroke="#ccc" stroke-width="1" stroke-dasharray="4,3"/>
     <line x1="10" y1="${(CBOT + 2).toFixed(1)}" x2="${(W - 10).toFixed(1)}" y2="${(CBOT + 2).toFixed(1)}"
           stroke="#ddd" stroke-width="1"/>
     ${xLabels.join('')}
-    <polyline points="${polyPoints}" fill="none" stroke="url(#ch-grad)" stroke-width="2.5" stroke-linejoin="round"/>
+    <polyline points="${polyPoints}" fill="none" stroke="#c8a84b" stroke-width="2.5" stroke-linejoin="round"/>
     ${trophies.join('')}
   `;
 
@@ -2102,8 +2083,7 @@ function renderSingleCityChart(cityName, data) {
     return `<tr>
       <td class="num">${p.date}</td>
       <td class="year-cell linked" data-year-link="${p.year}">${p.label}</td>
-      <td class="num score-cell">${fmtScore(p.combinedZ)}</td>
-      <td class="num peak-cell">${fmtScore(p.peakZ)}</td>
+      <td class="num vibe-cell">${fmtScore(p.vibeZ)}</td>
       <td>${chips}</td>
     </tr>`;
   }).join('');
@@ -2112,8 +2092,7 @@ function renderSingleCityChart(cityName, data) {
       <thead><tr>
         <th>Date</th>
         <th>Rating Window</th>
-        <th class="num">Score</th>
-        <th class="num">Peak</th>
+        <th class="num">Vibe</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -2136,23 +2115,23 @@ async function renderGoatYears() {
     return;
   }
 
-  // For each (city, year), keep the rating window where the city's Peak
+  // For each (city, year), keep the rating window where the city's Vibe
   // was highest. Filter to windows in leagues the city actually fields,
   // so single-sport metros like Green Bay only show up at NFL Super Bowl
   // entries (not at NBA + NHL Finals where the Packers' SB signal carries
   // forward but Green Bay has no NBA / NHL franchise of its own to be
-  // "competing" at that moment). Sort by Peak desc, take top 50.
+  // "competing" at that moment). Sort by Vibe desc, take top 50.
   const peaks = new Map();
   for (const s of data.snapshotMetros) {
     for (const m of s.metros) {
-      if (m.peakZ == null) continue;
+      if (m.vibeZ == null) continue;
       if (!metroParticipatesIn(m, s.kind)) continue;
       const key = `${m.name}__${s.year}`;
       const prev = peaks.get(key);
-      if (!prev || m.peakZ > prev.peakZ) {
+      if (!prev || m.vibeZ > prev.vibeZ) {
         peaks.set(key, {
           city: m.name, year: s.year,
-          combinedZ: m.combinedZ, peakZ: m.peakZ,
+          vibeZ: m.vibeZ,
           label: s.label, date: s.date,
           teams: m.teams, nTeams: m.nTeams,
         });
@@ -2161,7 +2140,7 @@ async function renderGoatYears() {
   }
 
   const top = [...peaks.values()]
-    .sort((a, b) => b.peakZ - a.peakZ)
+    .sort((a, b) => b.vibeZ - a.vibeZ)
     .slice(0, 50);
 
   const rows = top.map((p, i) => {
@@ -2171,8 +2150,7 @@ async function renderGoatYears() {
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${p.city}">${p.city}${meta}</td>
       <td class="year-cell linked" data-year-link="${p.year}">${p.year}</td>
-      <td class="num peak-cell">${fmtScore(p.peakZ)}</td>
-      <td class="num score-cell">${fmtScore(p.combinedZ)}</td>
+      <td class="num vibe-cell">${fmtScore(p.vibeZ)}</td>
       <td style="color:#777;font-size:12px;white-space:nowrap">${p.label}</td>
       <td>${chips}</td>
     </tr>`;
@@ -2184,9 +2162,8 @@ async function renderGoatYears() {
         <th class="num">Rank</th>
         <th>City</th>
         <th class="num">Year</th>
-        <th class="num">Peak</th>
-        <th class="num">Score</th>
-        <th>Peak Moment</th>
+        <th class="num">Vibe</th>
+        <th>Top Window</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>${rows}</tbody>
