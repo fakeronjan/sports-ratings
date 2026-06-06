@@ -1724,24 +1724,31 @@ async function renderCityHistory() {
   for (const s of data.snapshotMetros) for (const m of s.metros) cityNames.add(m.name);
   for (const m of data.current) cityNames.add(m.name);
   const allCities = [...cityNames].sort();
-  const defaultCity = data.current[0] ? data.current[0].name : allCities[0];
 
   el.innerHTML = `
     <div class="controls">
       <select id="ch-city">
-        ${allCities.map(c => `<option value="${c}"${c === defaultCity ? ' selected' : ''}>${c}</option>`).join('')}
+        <option value="">- Pick a city -</option>
+        ${allCities.map(c => `<option value="${c}">${c}</option>`).join('')}
       </select>
     </div>
     <div id="city-history-chart-wrap" style="display:none">
       <svg id="city-history-chart"></svg>
     </div>
-    <div id="ch-table"></div>
+    <div id="ch-table"><p class="loading">Pick a city above to see its history.</p></div>
   `;
 
   const sel = el.querySelector('#ch-city');
-  const update = () => renderSingleCityChart(sel.value, data);
+  const update = () => {
+    if (sel.value) {
+      renderSingleCityChart(sel.value, data);
+    } else {
+      document.getElementById('city-history-chart-wrap').style.display = 'none';
+      document.getElementById('ch-table').innerHTML =
+        '<p class="loading">Pick a city above to see its history.</p>';
+    }
+  };
   sel.addEventListener('change', update);
-  update();
 }
 
 function renderSingleCityChart(cityName, data) {
@@ -1754,13 +1761,24 @@ function renderSingleCityChart(cityName, data) {
   // has a franchise. Cincinnati (NFL + MLB + MLS) only shows rows for
   // NFL Super Bowl / MLB World Series / MLS Cup snapshots - not NBA / NHL
   // / WNBA windows where they have no team to even contribute.
+  //
+  // Championship markers (👑 / 🥈) on the chart are pinned to the exact
+  // rating window where the championship was clinched: a team's
+  // finalsStatus stays = 2 across subsequent rating windows (e.g. the
+  // Giants stay tagged as SB champs from Feb through the next NFL
+  // season's wrap), so we only fire the trophy when the team's sport
+  // matches the snapshot's kind. Otherwise the chart would emit a 👑 at
+  // every subsequent moment in the year.
   const points = [];  // {date, label, year, combinedZ, peakZ, teams, hasChamp, hasRu}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
     if (!m) continue;
     if (!metroParticipatesIn(m, s.kind)) continue;
-    const hasChamp = m.teams.some(t => t.finalsStatus === 2);
-    const hasRu    = m.teams.some(t => t.finalsStatus === 1);
+    const trophySports = s.kind === 'nba+nhl'
+      ? new Set(['NBA', 'NHL'])
+      : new Set([s.kind]);
+    const hasChamp = m.teams.some(t => t.finalsStatus === 2 && trophySports.has(t.sport));
+    const hasRu    = m.teams.some(t => t.finalsStatus === 1 && trophySports.has(t.sport));
     points.push({
       date: s.date, label: s.label, year: s.year,
       combinedZ: m.combinedZ, peakZ: m.peakZ,
