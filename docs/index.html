@@ -207,6 +207,11 @@
     margin-right: 6px;
     vertical-align: middle;
   }
+  .champ-note {
+    color: #999;
+    font-size: 11px;
+    font-weight: normal;
+  }
 
   .single-sport-tag {
     color: #aaa;
@@ -1487,15 +1492,16 @@ const TEAM_TO_METRO = {
 // Tennessee in 1997, the 1960/61 AFL titles stay with HOUSTON; Nashville
 // got NFL in 1997 and is data-driven from there.
 const PRE_1980_LAST_TITLE = {
-  // [year, era-correct team name]. Team string shown in Last Champion
-  // cell when the championship was pre-1980 (no data snapshot carries
-  // the era-correct name).
+  // [year, era-correct team name, optional note]. Note is rendered as
+  // an inline "(AFL)" footnote on the Last Champion cell - useful for
+  // distinguishing AFL championships from Super Bowl wins so the UI
+  // doesn't misleadingly imply Buffalo / SD have a SB ring.
   // NFL: Super Bowl era + pre-SB NFL/AFL titles
-  'Buffalo__NFL':                              [1965, 'Bills'],         // AFL champion
-  'Cleveland__NFL':                            [1964, 'Browns'],        // NFL Championship
-  'Detroit__NFL':                              [1957, 'Lions'],         // NFL Championship
-  'Houston__NFL':                              [1961, 'Oilers'],        // AFL champion (Houston market)
-  'San Diego__NFL':                            [1963, 'Chargers'],      // AFL champion (San Diego market - Chargers departed 2016)
+  'Buffalo__NFL':                              [1965, 'Bills',    'AFL'],   // AFL champion (never won SB)
+  'Cleveland__NFL':                            [1964, 'Browns'],            // NFL Championship
+  'Detroit__NFL':                              [1957, 'Lions'],             // NFL Championship
+  'Houston__NFL':                              [1961, 'Oilers',   'AFL'],   // AFL champion (Houston market)
+  'San Diego__NFL':                            [1963, 'Chargers', 'AFL'],   // AFL champion (SD Chargers departed 2016)
 
   // NBA
   'New York / New Jersey__NBA':                [1973, 'Knicks'],        // Nets ABA titles do not count as NBA
@@ -2450,20 +2456,25 @@ async function renderCityDroughts() {
 
     // Drought_start: max title year across all sports this city has ever
     // had (so departed sports still contribute) - data lastTitle plus
-    // PRE_1980_LAST_TITLE entries for the same city.
-    let bestTitleYear = -Infinity, bestTitleTeam = null, bestTitleSport = null;
+    // PRE_1980_LAST_TITLE entries for the same city. PRE_1980 entries
+    // can carry an optional inline note (e.g. "AFL") that surfaces in
+    // the Last Champion cell.
+    let bestTitleYear = -Infinity, bestTitleTeam = null, bestTitleSport = null, bestTitleNote = null;
     const sportsEverInCity = new Set([...Object.keys(cityTenures), ...currentSportsSet]);
     for (const sport of sportsEverInCity) {
       const key = `${city}__${sport}`;
       const lt = lastTitle[key];
-      let titleYear = null, titleTeam = null;
-      if (lt) { titleYear = lt.year; titleTeam = lt.team; }
-      else if (PRE_1980_LAST_TITLE[key] != null) {
+      let titleYear = null, titleTeam = null, titleNote = null;
+      if (lt) {
+        titleYear = lt.year; titleTeam = lt.team;
+      } else if (PRE_1980_LAST_TITLE[key] != null) {
         titleYear = PRE_1980_LAST_TITLE[key][0];
         titleTeam = PRE_1980_LAST_TITLE[key][1];
+        titleNote = PRE_1980_LAST_TITLE[key][2] || null;
       }
       if (titleYear != null && titleYear > bestTitleYear) {
-        bestTitleYear = titleYear; bestTitleTeam = titleTeam; bestTitleSport = sport;
+        bestTitleYear = titleYear; bestTitleTeam = titleTeam;
+        bestTitleSport = sport; bestTitleNote = titleNote;
       }
     }
 
@@ -2548,7 +2559,7 @@ async function renderCityDroughts() {
 
     records.push({
       city, drought, teamYears, everWon, droughtStart,
-      bestTitleTeam, bestTitleSport,
+      bestTitleTeam, bestTitleSport, bestTitleNote,
       sportsCount: currentSportsSet.size,
       teams: annotatedCurrentTeams,
       departedTeams,
@@ -2569,7 +2580,9 @@ async function renderCityDroughts() {
         ? `<span class="last-champ-sport">${r.bestTitleSport}</span>`
         : '';
       const reigningCls = r.drought === 0 ? 'reigning' : '';
-      lastCell = `<td class="${reigningCls}" style="white-space:nowrap">${sportTag}${r.droughtStart} ${shortTeam}</td>`;
+      const noteHtml = r.bestTitleNote
+        ? ` <span class="champ-note">(${r.bestTitleNote})</span>` : '';
+      lastCell = `<td class="${reigningCls}" style="white-space:nowrap">${sportTag}${r.droughtStart} ${shortTeam}${noteHtml}</td>`;
     } else {
       lastCell = `<td style="color:#888;white-space:nowrap">Never (since ${r.droughtStart})</td>`;
     }
