@@ -166,6 +166,20 @@
     color: #c8a84b;
     text-align: right;
   }
+  /* City Droughts tab numerics */
+  .total-drought-cell {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #1a6b8a;
+    text-align: right;
+  }
+  .drought-cell {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: #444;
+  }
+  .drought-cell.reigning { color: #1a6b8a; font-weight: 700; }
+  .drought-cell.empty    { color: #ccc; }
 
   .single-sport-tag {
     color: #aaa;
@@ -587,6 +601,7 @@
   <button data-view="cross-sport-rankings" role="tab">Cross-Sport Rankings</button>
   <button data-view="city-history" role="tab">City History</button>
   <button data-view="goat-table" role="tab">GOAT Table</button>
+  <button data-view="city-droughts" role="tab">City Droughts</button>
 </nav>
 
 <main id="main">
@@ -602,6 +617,10 @@
   <div id="goat-table-view" class="view tab">
     <p class="data-note">VIBE rating is a composite of successful seasons across sports · Championships and runner-up finishes are weighted heavier · Top 50 city-year peaks across 1980-present</p>
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
+  </div>
+  <div id="city-droughts-view" class="view tab">
+    <p class="data-note">Aggregate years since each city's last championship across the sports they currently field · Famous pre-1980 droughts (Cleveland NFL since 1964, Toronto NHL since 1967) carry through manually · "—" means the city has no team in that sport</p>
+    <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
 
@@ -1130,14 +1149,15 @@ SECTIONS.forEach((sec, si) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab switching - 4 main tabs (Current Summary | Cross-Sport Rankings |
-// City History | Cross-Sport GOAT Years). Lazy-render the three city-data
-// views on first activation.
+// Tab switching - 5 main tabs (Current Summary | Cross-Sport Rankings |
+// City History | GOAT Table | City Droughts). Lazy-render the four
+// city-data views on first activation.
 // ─────────────────────────────────────────────────────────────────────────────
 const cityRenderers = {
   'cross-sport-rankings': renderCrossSportRankings,
   'city-history':         renderCityHistory,
   'goat-table':           renderGoatYears,
+  'city-droughts':        renderCityDroughts,
 };
 const cityRendered = {};
 document.querySelectorAll('nav.view-tabs button').forEach(btn => {
@@ -1413,6 +1433,53 @@ const TEAM_TO_METRO = {
   'San Antonio Silver Stars': 'San Antonio',
   'Tulsa Shock': 'Tulsa',
   'Utah Starzz': 'Salt Lake City',
+};
+
+// (DMA, sport) -> year of the city's most recent pre-1980 championship,
+// OR (for never-won-ever cities whose market started pre-1980) the year
+// the city's market got that sport. Only used by the City Droughts tab
+// when a city has NO post-1980 title in that sport - we'd otherwise have
+// to cap the drought at "1980" (the city index data window start) which
+// understates real droughts like Cleveland NFL (1964 Browns) or Toronto
+// NHL (1967 Leafs).
+//
+// Format: "<DMA>__<sport>" (matches DMA labels from TEAM_TO_METRO).
+//
+// FLEET RULE (from project-nj-brooklyn-nets-decision): a market's drought
+// reflects WHAT HAPPENED IN THE MARKET, not what happened to the
+// franchise that's currently there. When the Oilers moved Houston ->
+// Tennessee in 1997, their pre-1997 history (incl. 1960/61 AFL titles)
+// stays with HOUSTON, not Nashville. Nashville's NFL market started 1997
+// and is data-driven from there; no override entry.
+const PRE_1980_LAST_TITLE_YEAR = {
+  // NFL - Super Bowl era + pre-SB NFL/AFL champions
+  'Buffalo__NFL':                              1965,  // Bills, 1965 AFL champion (never won SB)
+  'Cleveland__NFL':                            1964,  // Browns, last NFL Championship
+  'Detroit__NFL':                              1957,  // Lions, last NFL Championship
+  'Cincinnati__NFL':                           1968,  // Bengals founded (never won SB)
+  'Atlanta__NFL':                              1966,  // Falcons founded (never won SB)
+  'Minneapolis / St. Paul__NFL':               1961,  // Vikings founded (0-4 in SBs)
+  'Houston__NFL':                              1961,  // Oilers 1960/61 AFL titles stay w/ HOUSTON market; Texans 2002+ never won
+
+  // NBA - pre-1980 BAA / NBA champions; founded-year for never-won-since markets
+  'New York / New Jersey__NBA':                1973,  // Knicks (Nets ABA titles do not count as NBA)
+  'Portland__NBA':                             1977,  // Trail Blazers
+  'Washington__NBA':                           1978,  // Bullets / Wizards
+  'Atlanta__NBA':                              1968,  // Hawks arrived from St Louis (St Louis title stays w/ St Louis market)
+  'Phoenix__NBA':                              1968,  // Suns founded (never won)
+  'Indianapolis__NBA':                         1976,  // Pacers joined NBA from ABA (ABA titles to Indy market: 1970/72/73 - taking NBA-only convention)
+
+  // MLB - pre-1980 World Series
+  'Cleveland__MLB':                            1948,  // Indians / Guardians
+  'Pittsburgh__MLB':                           1979,  // Pirates
+  'Milwaukee__MLB':                            1957,  // Braves won 1957 WS in Milwaukee market; Brewers 1970+ never won (market history > franchise)
+  'San Diego__MLB':                            1969,  // Padres founded (never won)
+
+  // NHL - pre-1980 Stanley Cups
+  'Toronto__NHL':                              1967,  // Maple Leafs
+  'Philadelphia__NHL':                         1975,  // Flyers (also 1974)
+  'Buffalo__NHL':                              1970,  // Sabres founded (never won)
+  'Vancouver__NHL':                            1970,  // Canucks founded (never won)
 };
 
 // Short team names for chip display. Since the city is already established
@@ -2242,6 +2309,126 @@ async function renderGoatYears() {
         <th class="num">Vibe</th>
         <th>Top Window</th>
         <th>Teams</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  attachCityLinks();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: City Droughts
+// For each city, aggregate years-since-last-championship across the sports
+// they currently field. Walks city_index_history.json for post-1980 titles,
+// falls back to PRE_1980_LAST_TITLE_YEAR for famous deeper droughts, then
+// to the city's earliest appearance for post-1980-expansion markets.
+//
+// FLEET RULE: droughts attribute to the MARKET. When a team moves cities,
+// the old market keeps the pre-move history; the new market starts fresh.
+// ─────────────────────────────────────────────────────────────────────────────
+const DROUGHT_SPORTS = ['NBA', 'WNBA', 'NFL', 'MLB', 'NHL', 'MLS'];
+
+async function renderCityDroughts() {
+  const el = document.getElementById('city-droughts-content');
+  el.innerHTML = '<p class="loading">Loading...</p>';
+  const data = await ensureCityData();
+  if (data.error) {
+    el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
+    return;
+  }
+
+  // Which sports does each city currently field? Derived from the latest
+  // live-snapshot metros (data.current).
+  const currentSportsByCity = {};
+  for (const m of data.current) {
+    currentSportsByCity[m.name] = new Set(m.teams.map(t => t.sport));
+  }
+
+  // Walk historical snapshots once:
+  //   - lastTitle[`city__sport`] = { year, team } of latest finalsStatus=2
+  //   - earliestAppearance[`city__sport`] = first year city showed up in sport
+  //   - latestSeason[sport] = max season year across all teams in that sport
+  const lastTitle = {};
+  const earliestAppearance = {};
+  const latestSeason = {};
+  for (const snap of data.snapshotMetros) {
+    for (const m of snap.metros) {
+      for (const t of m.teams) {
+        const sport = t.sport;
+        const sy = t.seasonYear;
+        if (sy == null) continue;
+        const key = `${m.name}__${sport}`;
+        if (latestSeason[sport] == null || sy > latestSeason[sport]) latestSeason[sport] = sy;
+        if (earliestAppearance[key] == null || sy < earliestAppearance[key]) earliestAppearance[key] = sy;
+        if (t.finalsStatus === 2) {
+          if (lastTitle[key] == null || sy > lastTitle[key].year) {
+            lastTitle[key] = { year: sy, team: t.team };
+          }
+        }
+      }
+    }
+  }
+
+  // Build per-city drought records.
+  const records = [];
+  for (const city in currentSportsByCity) {
+    const sports = currentSportsByCity[city];
+    if (sports.size === 0) continue;
+    const perSport = {};
+    let total = 0;
+    for (const sport of sports) {
+      const key = `${city}__${sport}`;
+      const sportLatest = latestSeason[sport];
+      if (sportLatest == null) continue;
+      let lastWinYear, lastWinTeam = null;
+
+      const lt = lastTitle[key];
+      if (lt) {
+        lastWinYear = lt.year;
+        lastWinTeam = lt.team;
+      } else if (PRE_1980_LAST_TITLE_YEAR[key] != null) {
+        lastWinYear = PRE_1980_LAST_TITLE_YEAR[key];
+      } else {
+        // Post-1980 expansion market with no title yet - use earliest
+        // year city appears in the snapshots for this sport.
+        lastWinYear = earliestAppearance[key] != null ? earliestAppearance[key] : 1980;
+      }
+
+      const years = sportLatest - lastWinYear;
+      perSport[sport] = { years, lastWin: lastWinYear, lastTeam: lastWinTeam, reigning: years === 0 };
+      total += years;
+    }
+    records.push({ city, total, perSport, sportsCount: sports.size });
+  }
+
+  records.sort((a, b) => b.total - a.total);
+
+  // Render the table. City names are clickable -> City History.
+  const rows = records.map((r, i) => {
+    const cells = DROUGHT_SPORTS.map(s => {
+      const p = r.perSport[s];
+      if (!p) return `<td class="num drought-cell empty">—</td>`;
+      const tip = p.lastTeam
+        ? `Last won: ${p.lastTeam} (${p.lastWin})`
+        : `No championship since ${p.lastWin}`;
+      const cls = p.reigning ? 'reigning' : '';
+      return `<td class="num drought-cell ${cls}" title="${tip}">${p.years}</td>`;
+    }).join('');
+    return `<tr>
+      <td class="rank-cell">${i + 1}</td>
+      <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
+      <td class="num total-drought-cell">${r.total}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table>
+      <thead><tr>
+        <th class="num">Rank</th>
+        <th>City</th>
+        <th class="num">Total</th>
+        ${DROUGHT_SPORTS.map(s => `<th class="num">${s}</th>`).join('')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
