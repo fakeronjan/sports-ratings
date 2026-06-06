@@ -215,9 +215,6 @@
   .team-chip.win  .z { color: #1a6b8a; font-weight: 700; }
   .team-chip.runner { background: #f0f0f0; }
   .team-chip.runner .sport-tag { background: #888; }
-  /* Bench teams: shown for completeness but don't count toward Vibe. */
-  .team-chip.bench { opacity: 0.55; }
-  .team-chip.bench .sport-tag { background: #aaa; }
 
   /* Champion / runner-up trophy chips */
   .trophy-chip {
@@ -1599,11 +1596,11 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  // Collect ALL teams per metro. We display the full roster on the team
-  // chips (NYC users want to see Knicks AND Nets, not just whichever is
-  // higher rated this snapshot), but the Vibe math still uses only the
-  // BEST team per (city, sport) pair so multi-team-per-sport metros
-  // don't artificially inflate their Stouffer n.
+  // Collect ALL teams per metro. Every team feeds the chip roster AND the
+  // Vibe math - same-sport pairs (Yankees + Mets, Cubs + White Sox, Lakers
+  // + Clippers) both count if both are positive, because max-over-K's
+  // optimization picks the K window that maximizes Vibe and just ignores
+  // any team that would drag the average.
   const metros = {};
   for (const s of sportPayloads) {
     for (const t of s.teams) {
@@ -1625,24 +1622,11 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  // Mark the best team per (metro, sport) - those are the ones that
-  // contribute to Vibe. The others are display-only.
-  for (const m of Object.values(metros)) {
-    const bestPerSport = {};
-    for (const t of m.teams) {
-      if (!bestPerSport[t.sport] || t.zScore > bestPerSport[t.sport].zScore) {
-        bestPerSport[t.sport] = t;
-      }
-    }
-    for (const t of m.teams) {
-      t.isContributor = (t === bestPerSport[t.sport]);
-    }
-  }
-
   return Object.values(metros).map(m => {
-    const contributors = m.teams.filter(t => t.isContributor);
-    m.nTeams = contributors.length;
-    // Vibe: max-over-K Stouffer of POSITIVE z-scores. Sort positive z's
+    m.nTeams  = m.teams.length;
+    m.nSports = new Set(m.teams.map(t => t.sport)).size;
+    // Vibe: max-over-K Stouffer of POSITIVE z-scores across ALL of the
+    // city's teams (no best-per-sport filter). Sort positive z's
     // descending, try each cumulative top-K window, take the best.
     //   - rewards concentrated upside (Boston 2004's Patriots + Red Sox
     //     read at their honest +3.15 instead of being diluted by the
@@ -1651,9 +1635,15 @@ function aggregateMetros(sportPayloads) {
     //     a marginal positive INCREASED the score (here we pick the K
     //     that maximizes, so adding or removing a small positive never
     //     drops Vibe)
+    //   - lets BOTH same-sport teams contribute when both are positive
+    //     (1989 Bay Area A's + Giants, 2000 NY Yankees + Mets) - the
+    //     max-over-K optimization picks them up if including the 2nd one
+    //     raises the running average, ignores it otherwise. (User direction
+    //     2026-06-06: under max-over-K we no longer need the
+    //     best-per-sport filter that was needed to keep sqrt(n) honest.)
     //   - needs no arbitrary threshold
-    // Always >= 0 (a city with no positive contributors gets Vibe = 0).
-    const sortedPos = contributors.map(t => t.zScore)
+    // Always >= 0 (a city with no positive teams gets Vibe = 0).
+    const sortedPos = m.teams.map(t => t.zScore)
       .filter(z => z > 0)
       .sort((a, b) => b - a);
     let bestVibe = 0;
@@ -1790,14 +1780,12 @@ const CHART_COLORS = [
 
 // Render a team-chip. Since the city is established by the row, the team
 // is shown by nickname + 2-digit season year (e.g. "25 Knicks", "24
-// Giants"). Championship state (👑 / 🥈) and contributor state (bench
-// fade for non-best-per-sport entries) are layered on top.
+// Giants"). Championship state (👑 / 🥈) is layered on top.
 function teamChipHtml(t) {
   const classes = ['team-chip'];
   let extra = '';
   if (t.finalsStatus === 2)      { classes.push('win');    extra = ' 👑'; }
   else if (t.finalsStatus === 1) { classes.push('runner'); extra = ' 🥈'; }
-  if (t.isContributor === false) classes.push('bench');
   const z = t.zScore.toFixed(2);
   const shortName = TEAM_SHORT_NAME[t.team] || t.team;
   const yr = t.seasonYear != null
@@ -1836,7 +1824,7 @@ function buildRankingsTable(metros) {
       <tbody>
         ${metros.map((m, i) => {
           const chips = m.teams.map(teamChipHtml).join('');
-          const meta = m.nTeams === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
+          const meta = m.nSports === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
           return `<tr>
             <td class="rank-cell">${i + 1}</td>
             <td class="city-cell linked" data-city-link="${m.name}">${m.name}${meta}</td>
@@ -2154,7 +2142,7 @@ async function renderGoatYears() {
           city: m.name, year: s.year,
           vibeZ: m.vibeZ,
           label: s.label, date: s.date,
-          teams: m.teams, nTeams: m.nTeams,
+          teams: m.teams, nSports: m.nSports,
         });
       }
     }
@@ -2166,7 +2154,7 @@ async function renderGoatYears() {
 
   const rows = top.map((p, i) => {
     const chips = p.teams.map(teamChipHtml).join('');
-    const meta = p.nTeams === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
+    const meta = p.nSports === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${p.city}">${p.city}${meta}</td>
