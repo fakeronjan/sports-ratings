@@ -1501,11 +1501,17 @@ async function ensureCityData() {
 
     // Historical snapshots: for each pre-computed snapshot, group teams by
     // sport then aggregate by metro via the same TEAM_TO_METRO mapping.
+    // finalsStatus is carried through grouping so champion / runner-up
+    // markers can render in the City History chart + tables.
     const snapshotMetros = (history.snapshots || []).map(snap => {
       const grouped = {};
       for (const t of snap.teams) {
         if (!grouped[t.sport]) grouped[t.sport] = { label: t.sport, teams: [] };
-        grouped[t.sport].teams.push({ rating: t.rating, team: t.team });
+        grouped[t.sport].teams.push({
+          rating: t.rating,
+          team:   t.team,
+          finalsStatus: t.finalsStatus,
+        });
       }
       const metros = aggregateMetros(Object.values(grouped));
       metros.sort((a, b) => b.combinedZ - a.combinedZ);

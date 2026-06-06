@@ -80,8 +80,18 @@ def snapshot_at(snaps, target):
 
 
 def collect_sport_finale_dates(sport_path):
-    """For each season file, the max snapshot date. That's that sport's
-    end-of-season date (championship/finals/cup)."""
+    """For each COMPLETED season file, the date of its last snapshot - that's
+    the championship / cup-winning game.
+
+    Critical: only include seasons that have actually finished. Each fleet
+    site labels the last snapshot of a completed season with 'End of
+    playoffs' (or 'Super Bowl - End of playoffs' on DILLON). In-progress
+    seasons just have a label of None or the current week, so checking
+    the last snapshot's label is the reliable completion signal.
+    Without this gate the build script emits fake championship dates
+    like '2026 NBA Finals' on whatever today's date is, which corrupts
+    the City History chart + GOAT table.
+    """
     finales = []
     seasons_dir = os.path.join(sport_path, 'docs', 'data', 'seasons')
     if not os.path.isdir(seasons_dir):
@@ -94,19 +104,21 @@ def collect_sport_finale_dates(sport_path):
                 d = json.load(f)
         except Exception:
             continue
-        max_date = None
-        for snap in d.get('snapshots', []):
-            ds = snap.get('date')
-            if not ds:
-                continue
-            try:
-                d_obj = date.fromisoformat(ds[:10])
-            except Exception:
-                continue
-            if max_date is None or d_obj > max_date:
-                max_date = d_obj
-        if max_date:
-            finales.append(max_date)
+        snaps = d.get('snapshots', [])
+        if not snaps:
+            continue
+        last = snaps[-1]
+        last_label = last.get('label') or ''
+        if 'End of playoffs' not in last_label:
+            continue  # in-progress season
+        ds = last.get('date')
+        if not ds:
+            continue
+        try:
+            d_obj = date.fromisoformat(ds[:10])
+        except Exception:
+            continue
+        finales.append(d_obj)
     return sorted(set(finales))
 
 
