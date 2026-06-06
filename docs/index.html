@@ -2353,9 +2353,13 @@ async function renderCityDroughts() {
   }
 
   // Which sports does each city currently field? From live data.
+  // currentMetroByCity is the full metro object (includes m.teams) so we
+  // can render the same chip strip the other tabs use.
   const currentSportsByCity = {};
+  const currentMetroByCity = {};
   for (const m of data.current) {
     currentSportsByCity[m.name] = new Set(m.teams.map(t => t.sport));
+    currentMetroByCity[m.name] = m;
   }
 
   // Single walk of historical snapshots:
@@ -2431,6 +2435,7 @@ async function renderCityDroughts() {
     records.push({
       city, drought, everWon, droughtStart,
       bestTitleTeam, bestTitleSport, sportsCount: sports.size,
+      teams: currentMetroByCity[city] ? currentMetroByCity[city].teams : [],
     });
   }
 
@@ -2452,11 +2457,13 @@ async function renderCityDroughts() {
     } else {
       lastCell = `<td style="color:#888">Never (since ${r.droughtStart})</td>`;
     }
+    const chips = r.teams.map(teamChipHtml).join('');
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
       <td class="num total-drought-cell">${r.drought}</td>
       ${lastCell}
+      <td>${chips}</td>
     </tr>`;
   }).join('');
 
@@ -2467,6 +2474,7 @@ async function renderCityDroughts() {
         <th>City</th>
         <th class="num">Years</th>
         <th>Last Champion</th>
+        <th>Teams</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
