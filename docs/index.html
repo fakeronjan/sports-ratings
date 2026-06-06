@@ -634,7 +634,7 @@
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-droughts-view" class="view tab">
-    <p class="data-note">Years since each city's last championship across all the sports they field · Team-Years multiplies that drought by current team count, so multi-team markets accumulate faster · Famous pre-1980 droughts (Cleveland NFL since 1964, Toronto NHL since 1967) carry through manually</p>
+    <p class="data-note">Years since each city's last championship across all the sports they field · Season-Years sums each team's tenure inside the current drought, so multi-team markets and historical departed teams (Chargers in SD) accumulate faster · Famous pre-1980 droughts (Cleveland NFL since 1964, Toronto NHL since 1967) carry through manually</p>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -2481,10 +2481,13 @@ async function renderCityDroughts() {
     const droughtStart = everWon ? bestTitleYear : earliestMarket;
     const drought = cityLatestSeason - droughtStart;
 
-    // Team-Years: sum each team's tenure-years inside the drought period.
+    // Season-Years: sum each team's tenure-years inside the drought period.
     // For every team ever in this market: in_drought = max(0,
     //   min(team_end, cityLatestSeason) - max(team_start, droughtStart))
     // team_start is extended via TEAM_MARKET_ENTRY for pre-1980 founders.
+    // The (drought-aligned) firstYear / lastYear are also what the chip
+    // year-range displays, so the chip shows "since when this team
+    // joined the current drought" rather than raw tenure.
     let teamYears = 0;
     const departedTeams = [];
     for (const sport in cityTenures) {
@@ -2495,32 +2498,34 @@ async function renderCityDroughts() {
           teamStart = TEAM_MARKET_ENTRY[team];
         }
         const teamEnd = ten.last;
-        const inDrought = Math.max(0,
-          Math.min(teamEnd, cityLatestSeason) - Math.max(teamStart, droughtStart));
+        const droughtFirst = Math.max(teamStart, droughtStart);
+        const droughtLast  = Math.min(teamEnd,   cityLatestSeason);
+        const inDrought = Math.max(0, droughtLast - droughtFirst);
         teamYears += inDrought;
-        // Mark departed (in this city's history but not in current snapshot).
         const sportTeamKey = `${sport}__${team}`;
         if (!currentTeamKeys.has(sportTeamKey) && inDrought > 0) {
-          departedTeams.push({ team, sport, firstYear: teamStart, lastYear: teamEnd });
+          departedTeams.push({ team, sport, firstYear: droughtFirst, lastYear: droughtLast });
         }
       }
     }
     // Sort departed teams by most-recently-departed first.
     departedTeams.sort((a, b) => b.lastYear - a.lastYear);
 
-    // Annotate each current team with its tenure-in-market range, so the
-    // chip can show '60-'25 (the years the team has been here) instead
-    // of a rating value - rating is irrelevant on the Droughts tab and
-    // year range is the metric-aligned thing to show.
+    // Annotate each current team with its drought-aligned year range:
+    // start = max(team_first, droughtStart), end = min(team_last, latestSeason).
+    // Same shape as the in_drought math above so the chip's '16-'25
+    // matches the team's contribution to Season-Years.
     const annotatedCurrentTeams = currentTeams.map(t => {
       const ten = cityTenures[t.sport] && cityTenures[t.sport][t.team];
-      let firstYear = ten ? ten.first : null;
+      let teamFirst = ten ? ten.first : null;
       if (TEAM_MARKET_ENTRY[t.team] != null
-          && firstYear != null
-          && TEAM_MARKET_ENTRY[t.team] < firstYear) {
-        firstYear = TEAM_MARKET_ENTRY[t.team];
+          && teamFirst != null
+          && TEAM_MARKET_ENTRY[t.team] < teamFirst) {
+        teamFirst = TEAM_MARKET_ENTRY[t.team];
       }
-      const lastYear = ten ? ten.last : null;
+      const teamLast = ten ? ten.last : null;
+      const firstYear = teamFirst != null ? Math.max(teamFirst, droughtStart) : droughtStart;
+      const lastYear  = teamLast  != null ? Math.min(teamLast, cityLatestSeason) : cityLatestSeason;
       return { ...t, firstYear, lastYear };
     });
 
@@ -2573,10 +2578,10 @@ async function renderCityDroughts() {
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
-      <td class="num total-drought-cell">${r.drought}</td>
-      <td class="num team-years-cell">${r.teamYears}</td>
       ${lastCell}
       <td>${currentChips}${departedChips}</td>
+      <td class="num total-drought-cell">${r.drought}</td>
+      <td class="num team-years-cell">${r.teamYears}</td>
     </tr>`;
   }).join('');
 
@@ -2585,10 +2590,10 @@ async function renderCityDroughts() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th class="num">Years</th>
-        <th class="num">Team-Years</th>
         <th>Last Champion</th>
         <th>Teams</th>
+        <th class="num">Years since last champ in city</th>
+        <th class="num">Season-Years since last champ in city</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
