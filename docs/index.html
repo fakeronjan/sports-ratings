@@ -1630,16 +1630,29 @@ function aggregateMetros(sportPayloads) {
     const sumZ = contributors.reduce((a, t) => a + t.zScore, 0);
     m.combinedZ = sumZ / Math.sqrt(n);
     m.nTeams = n;
-    // Peak: sum of positive z-scores divided by sqrt(n_sports_represented),
-    // NOT sqrt(n_positive). User direction 2026-06-07: dividing by positives
-    // only created an artifact where removing a marginally-positive
-    // contribution INCREASED Peak (because sqrt(n_positive) shrinks faster
-    // than the sum). Dividing by the full sport count keeps the negative
-    // teams in the denominator (they're zeroed out of the numerator, but
-    // they still 'existed').
-    const sumPos = contributors.reduce((a, t) => a + Math.max(0, t.zScore), 0);
-    m.peakZ = sumPos / Math.sqrt(n);
-    m.nPositive = contributors.filter(t => t.zScore > 0).length;
+    // Peak: max-over-K Stouffer of positive z-scores. Sort contributors'
+    // positive z's descending, try each cumulative top-K window, take the
+    // best. This formulation:
+    //   - rewards concentrated upside (Boston 2004's Patriots + Red Sox
+    //     read at their honest +3.15 instead of being diluted by the
+    //     Celtics drag in the sqrt(n_total) denominator)
+    //   - doesn't suffer the sqrt(n_positive) artifact where removing a
+    //     marginal positive INCREASED Peak (here we pick the K that
+    //     maximizes, so adding a small positive never hurts)
+    //   - requires no arbitrary threshold
+    // User direction 2026-06-07.
+    const sortedPos = contributors.map(t => t.zScore)
+      .filter(z => z > 0)
+      .sort((a, b) => b - a);
+    let bestPeak = 0;
+    let runningSum = 0;
+    for (let k = 1; k <= sortedPos.length; k++) {
+      runningSum += sortedPos[k - 1];
+      const candidate = runningSum / Math.sqrt(k);
+      if (candidate > bestPeak) bestPeak = candidate;
+    }
+    m.peakZ = bestPeak;
+    m.nPositive = sortedPos.length;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
