@@ -148,13 +148,26 @@ for sport, repo in REPOS.items():
 # City History chart from showing two redundant adjacent points. By the
 # later date, both sports' final ratings are baked in.
 
-# Group finales by year so we can apply the NBA+NHL combine rule.
-finales_by_year = {}  # year -> {sport: date}
+# Season-year for labeling. NFL's Super Bowl always plays in Jan / Feb of
+# the year AFTER the season starts (1996 season -> SB XXXI on 2024-01-26),
+# so for NFL the season year is `date.year - 1`. Every other sport's
+# finale happens in the same calendar year as its season.
+def season_year_for(sport, dt):
+    if sport == 'NFL':
+        return dt.year - 1
+    return dt.year
+
+# Group finales by SEASON year (not calendar year of the finale date) so
+# the NBA+NHL combine pairs the right years and the picker labels read
+# correctly. Green Bay 1996 SB win is labeled "1996 NFL Super Bowl"
+# (date 1997-01-26) - it WAS the end of the 1996 season.
+finales_by_year = {}  # season_year -> {sport: date}
 for sport, finales in finale_dates_by_sport.items():
     for fd in finales:
-        if fd.year < FROM_YEAR or fd.year > TO_YEAR:
+        season_yr = season_year_for(sport, fd)
+        if season_yr < FROM_YEAR or season_yr > TO_YEAR:
             continue
-        finales_by_year.setdefault(fd.year, {})[sport] = fd
+        finales_by_year.setdefault(season_yr, {})[sport] = fd
 
 key_dates = []  # list of (date, label, year, kind)
 for year in sorted(finales_by_year):
@@ -209,9 +222,33 @@ for kd, label, year, kind in key_dates:
         for t in s['teams']:
             t['_z'] = (t['rating'] - mean) / std
 
-    # Flatten. finals_status (2 = champion that season, 1 = runner-up) is
-    # preserved so the City History view can mark championship moments
-    # with a 👑 / 🥈 emoji on the chart and in the table.
+    # Flatten. Champion / runner-up status (2 = champion, 1 = runner-up) is
+    # preserved so the City History view can mark championship moments with
+    # a 👑 / 🥈 emoji on the chart and in the table.
+    #
+    # Each fleet site uses a slightly different field name for this:
+    #   NBA / WNBA / MLB / NHL: finals_status (2 = champ, 1 = RU)
+    #   NFL (DILLON):            sb_status    (2 = champ, 1 = RU)
+    #   MLS (COBI):              mls_cup_finish (string 'Champion' / 'Runner-Up')
+    # Coalesce them into a single finalsStatus int.
+    def champ_status(team):
+        v = team.get('finals_status')
+        if v is None:
+            v = team.get('sb_status')
+        if v is not None:
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                pass
+        mls = team.get('mls_cup_finish')
+        if isinstance(mls, str):
+            s = mls.strip().lower()
+            if s == 'champion':
+                return 2
+            if 'runner' in s:
+                return 1
+        return 0
+
     for s in sport_payloads:
         for t in s['teams']:
             if '_z' not in t:
@@ -219,17 +256,12 @@ for kd, label, year, kind in key_dates:
             name = t.get('display_name') or t.get('team') or t.get('name')
             if not name:
                 continue
-            fs = t.get('finals_status')
-            try:
-                fs_int = int(fs) if fs is not None else 0
-            except (TypeError, ValueError):
-                fs_int = 0
             entry['teams'].append({
                 'sport':        s['label'],
                 'team':         name,
                 'rating':       round(float(t['rating']), 3),
                 'zScore':       round(float(t['_z']), 4),
-                'finalsStatus': fs_int,
+                'finalsStatus': champ_status(t),
             })
 
     if entry['teams']:
