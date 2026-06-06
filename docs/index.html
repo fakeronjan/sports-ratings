@@ -858,6 +858,13 @@ async function loadWLS(repo, badgeFn, opts) {
   const showPlayoffs = !isSoccer && top5.some(t => hasGames(t.playoff_record));
   const showRecord = !opts.hideRecord && top5.some(t => t.regular_record || t.record);
   const showLast = !!opts.showLast;
+  // Title % column: when playoffs haven't started yet for a bracket sport,
+  // show each team's title odds (the predictive model output) instead of
+  // an empty space. Field name varies by sport - NBA / WNBA / MLB use
+  // `title_odds`, NFL uses `sb_odds`. Both are probabilities 0-1.
+  const titleOdds = (t) => (t.title_odds != null ? t.title_odds
+                       : (t.sb_odds != null ? t.sb_odds : null));
+  const showTitleOdds = !showPlayoffs && top5.some(t => titleOdds(t) != null);
   const recordLabel = isSoccer ? 'W-D-L' : (isHockey ? 'W-L-OTL' : 'W-L');
   // Three-component records (W-D-L / W-L-OTL) need a wider column than W-L.
   const recordWidth = (isSoccer || isHockey) ? 70 : null;
@@ -866,6 +873,7 @@ async function loadWLS(repo, badgeFn, opts) {
   if (showRecord) columns.push({ label: recordLabel, cls: 'record', width: recordWidth });
   if (isSoccer && showRecord) columns.push({ label: 'Pts', cls: 'num' });
   if (showPlayoffs) columns.push({ label: 'Playoffs', cls: 'record' });
+  else if (showTitleOdds) columns.push({ label: 'Title %', cls: 'record' });
   if (showLast) columns.push({ label: 'Last', cls: 'last' });
   columns.push({ label: 'Rating', cls: 'rating' });
 
@@ -888,6 +896,13 @@ async function loadWLS(repo, badgeFn, opts) {
       }
       if (showPlayoffs) {
         cells.push(hasGames(t.playoff_record) ? escapeHtml(t.playoff_record) : '-');
+      } else if (showTitleOdds) {
+        const odds = titleOdds(t);
+        if (odds == null) { cells.push('-'); }
+        else {
+          const pct = (odds * 100).toFixed(1);
+          cells.push(pct === '0.0' ? '-' : `${pct}%`);
+        }
       }
       if (showLast) {
         cells.push(escapeHtml(fmtLast(t.last_match)));
