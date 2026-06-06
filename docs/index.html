@@ -1553,13 +1553,31 @@ const CITY_SPORTS = [
 // Peak (peak-z)      = sum(max(0, z)) / sqrt(n_positive) - measures upside,
 //                      ignoring drag from below-average teams.
 function aggregateMetros(sportPayloads) {
-  // Z-score each team within its sport.
+  // Z-score each team. The mean is per-snapshot (ratings are already
+  // near-zero-centered by design), but the std uses the sport's 5-year
+  // rolling-window value (built from history) when available. This keeps
+  // dominance comparable across eras: a +12 NBA team in 1984 (tight
+  // distribution) and a +12 NBA team in 2025 (wider distribution) both
+  // get z-scored against the long-run typical NBA spread, not against
+  // whatever this single year's std happens to be. Falls back to
+  // per-snapshot std if no rolling value is available (e.g. live data
+  // before history loads, or pre-1980 entries).
   for (const s of sportPayloads) {
     const ratings = s.teams.map(t => t.rating).filter(r => r != null);
     if (ratings.length < 2) continue;
     const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-    const variance = ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length;
-    const std = Math.sqrt(variance);
+    const sampleSeasonYear = s.teams.find(t => t.seasonYear != null)
+                              ? s.teams.find(t => t.seasonYear != null).seasonYear
+                              : null;
+    let std;
+    if (rollingStdBySport && rollingStdBySport[s.label]
+        && sampleSeasonYear != null
+        && rollingStdBySport[s.label][sampleSeasonYear] != null) {
+      std = rollingStdBySport[s.label][sampleSeasonYear];
+    } else {
+      const variance = ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length;
+      std = Math.sqrt(variance);
+    }
     if (std === 0) continue;
     for (const t of s.teams) {
       if (t.rating != null) t.zScore = (t.rating - mean) / std;
@@ -1630,6 +1648,54 @@ function aggregateMetros(sportPayloads) {
 // Cached state used by all four sub-views.
 let cityData = null;  // { current: [metros], snapshotMetros: [{date, label, year, kind, metros}] }
 
+// Per-sport rolling-window std used as the z-score denominator. Computed
+// once from the full history; for each (sport, year) we average that
+// sport's per-year std across a 5-year centered window (year-2 .. year+2).
+// This smooths over years where a sport had unusually high or low rating
+// variance (e.g. 2021 NHL ran wider than typical post-COVID; 1996 NFL was
+// tighter than usual). Using per-year-only std artificially inflates or
+// deflates dominance signals; the rolling window keeps the cross-era
+// comparison honest without flattening real era differences.
+let rollingStdBySport = null;  // {sport: {year: std}}
+
+function buildRollingStdLookup(history) {
+  // Bucket ratings by (sport, year) across the whole history.
+  const byKey = {};
+  for (const snap of history.snapshots || []) {
+    for (const t of snap.teams) {
+      const k = `${t.sport}__${snap.year}`;
+      if (!byKey[k]) byKey[k] = [];
+      byKey[k].push(t.rating);
+    }
+  }
+  // Per-(sport, year) std
+  const yearStd = {};  // sport -> year -> std
+  for (const [k, ratings] of Object.entries(byKey)) {
+    if (ratings.length < 2) continue;
+    const mn = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    const v  = ratings.reduce((a, b) => a + (b - mn) ** 2, 0) / ratings.length;
+    const [sport, yearStr] = k.split('__');
+    if (!yearStd[sport]) yearStd[sport] = {};
+    yearStd[sport][parseInt(yearStr, 10)] = Math.sqrt(v);
+  }
+  // 5-year centered rolling average (year-2 .. year+2)
+  const rolling = {};
+  for (const [sport, years] of Object.entries(yearStd)) {
+    rolling[sport] = {};
+    for (const yearStr of Object.keys(years)) {
+      const year = parseInt(yearStr, 10);
+      const w = [];
+      for (let y = year - 2; y <= year + 2; y++) {
+        if (years[y] != null) w.push(years[y]);
+      }
+      rolling[sport][year] = w.length > 0
+        ? w.reduce((a, b) => a + b, 0) / w.length
+        : years[year];
+    }
+  }
+  return rolling;
+}
+
 async function ensureCityData() {
   if (cityData) return cityData;
   try {
@@ -1640,6 +1706,9 @@ async function ensureCityData() {
     const results = await Promise.all(fetches);
     const sportPayloads = results.filter(r => !r.__history);
     const history = results.find(r => r.__history).__history;
+
+    // Build rolling-std lookup from the full history before any aggregation.
+    rollingStdBySport = buildRollingStdLookup(history);
 
     // Current snapshot (live)
     const currentMetros = aggregateMetros(sportPayloads);
