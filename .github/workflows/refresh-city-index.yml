@@ -1,0 +1,104 @@
+name: Refresh City Index
+
+# Daily sweep: re-reads each sister site's season-end snapshots and
+# rebuilds docs/data/city_index_history.json. The build is cheap (~196
+# rolling snapshots from ~6 sister sites, all JSON reads) and idempotent,
+# so daily is fine even though seasons only complete occasionally.
+#
+# Runs at 23:13 UTC - safely AFTER every sister-site daily cron has
+# finished updating its own ratings + season JSONs. If we run BEFORE a
+# sister cron, we miss that day's new "End of playoffs" marker until the
+# next sweep, which is harmless.
+
+on:
+  schedule:
+    - cron: '13 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sports-ratings
+        uses: actions/checkout@v4
+        with:
+          path: sports-ratings
+
+      # Sparse-checkout each sister repo, pulling only docs/data/seasons/
+      # so we skip the full repo (~most weight is in CSV game logs we
+      # don't need). build_city_index_history.py reads ../<NAME>/docs/data/seasons
+      # relative to sports-ratings, so each sister-repo `path:` matches
+      # the local Drive folder name the build script expects.
+      - name: Checkout DUNCAN (NBA)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/duncan
+          path: NBA
+          sparse-checkout: docs/data/seasons
+
+      - name: Checkout LOBO (WNBA)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/lobo
+          path: WNBA
+          sparse-checkout: docs/data/seasons
+
+      - name: Checkout DILLON (NFL)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/dillon
+          path: NFL
+          sparse-checkout: docs/data/seasons
+
+      - name: Checkout GRIFFEY (MLB)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/griffey
+          path: MLB
+          sparse-checkout: docs/data/seasons
+
+      - name: Checkout SAKIC (NHL)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/sakic
+          path: NHL
+          sparse-checkout: docs/data/seasons
+
+      - name: Checkout COBI (MLS)
+        uses: actions/checkout@v4
+        with:
+          repository: fakeronjan/cobi
+          path: 'soccer us-mex'
+          sparse-checkout: docs/data/seasons
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build city index history
+        working-directory: sports-ratings
+        run: python build_city_index_history.py
+
+      - name: Commit and push if changed
+        working-directory: sports-ratings
+        run: |
+          git config user.name  "City Index Bot"
+          git config user.email "city-index-bot@users.noreply.github.com"
+          git add docs/data/city_index_history.json
+          if git diff --staged --quiet; then
+            echo "No changes - city index already current."
+          else
+            git commit -m "Refresh city index $(date -u '+%Y-%m-%d')"
+            # Race-safe push: if a code push lands during this run, rebase
+            # on top and retry. Otherwise the cron's push gets rejected
+            # and the day's refresh is lost. (Fleet-wide convention.)
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "Push attempt $i failed; retrying in 5s..."
+              sleep 5
+            done
+          fi
