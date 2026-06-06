@@ -1470,12 +1470,18 @@ function aggregateMetros(sportPayloads) {
     const sumZ = m.teams.reduce((a, t) => a + t.zScore, 0);
     m.combinedZ = sumZ / Math.sqrt(n);
     m.nTeams = n;
-    // Peak: positives-only Stouffer.
-    const positives = m.teams.filter(t => t.zScore > 0);
-    m.nPositive = positives.length;
-    m.peakZ = positives.length > 0
-      ? positives.reduce((a, t) => a + t.zScore, 0) / Math.sqrt(positives.length)
-      : null;
+    // Peak: sum of positive z-scores divided by sqrt(n_sports_represented),
+    // NOT sqrt(n_positive). User direction 2026-06-07: dividing by positives
+    // only created an artifact where removing a marginally-positive
+    // contribution INCREASED Peak (because sqrt(n_positive) shrinks faster
+    // than the sum). NY 1987 peak landed at the NBA + NHL Finals window
+    // simply because Islanders fell below zero between Jan and June 1987,
+    // not because anything in June was genuinely "more peak". Dividing by
+    // the full sport count keeps the negative teams in the denominator
+    // (they're zeroed out of the numerator, but they still 'existed').
+    const sumPos = m.teams.reduce((a, t) => a + Math.max(0, t.zScore), 0);
+    m.peakZ = sumPos / Math.sqrt(n);
+    m.nPositive = m.teams.filter(t => t.zScore > 0).length;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
