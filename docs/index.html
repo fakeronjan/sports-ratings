@@ -179,6 +179,15 @@
     color: #777;
     text-align: right;
   }
+  /* Two-line stacked headers for the numeric drought columns; lets the
+     Teams column breathe across the rest of the row. */
+  .droughts-table th.drought-stack {
+    white-space: normal;
+    line-height: 1.25;
+    width: 92px;
+    min-width: 92px;
+  }
+  .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
   .last-champ-sport {
     display: inline-block;
     background: #ddd;
@@ -2586,14 +2595,14 @@ async function renderCityDroughts() {
   }).join('');
 
   el.innerHTML = `
-    <table>
+    <table class="droughts-table">
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
         <th>Last Champion</th>
         <th>Teams</th>
-        <th class="num">Years since last champ in city</th>
-        <th class="num">Season-Years since last champ in city</th>
+        <th class="num drought-stack">Years since<br>last champ</th>
+        <th class="num drought-stack">Season-Years<br>since last champ</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
