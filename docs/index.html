@@ -188,6 +188,18 @@
     min-width: 92px;
   }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
+  /* Drop the chip-pill background on non-medal chips so the 🥈 silver and
+     👑 gold backgrounds stand out against text-style siblings. */
+  .droughts-table .team-chip:not(.win):not(.runner):not(.departed) {
+    background: transparent;
+  }
+  /* Bump runner's background to a slightly more silver tone to read as
+     "silver medal" rather than just "gray pill". */
+  .droughts-table .team-chip.runner {
+    background: #d8dce5;
+    border: 1px solid #b8bdc8;
+    padding: 0 5px;  /* compensate for the border so height matches siblings */
+  }
   .droughts-table .th-sub {
     font-weight: normal;
     color: #999;
