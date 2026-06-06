@@ -75,11 +75,9 @@
   nav.view-tabs button:hover { color: #fff; }
   nav.view-tabs button.active { color: #ff6eb4; border-bottom-color: #ff6eb4; }
 
-  .view { display: none; padding: 16px; max-width: 1320px; margin: 0 auto; }
+  /* <main> already provides max-width + padding; views just toggle display. */
+  .view { display: none; }
   .view.active { display: block; }
-  /* Current Summary keeps the original cards layout - its content is the
-     SECTIONS list (Basketball / Football / etc.) and uses .grid + .card. */
-  #current-summary-view { padding-top: 24px; }
 
   .intro-note {
     background: #fff;
