@@ -1643,18 +1643,28 @@ function aggregateMetros(sportPayloads) {
     //     best-per-sport filter that was needed to keep sqrt(n) honest.)
     //   - needs no arbitrary threshold
     // Always >= 0 (a city with no positive teams gets Vibe = 0).
-    const sortedPos = m.teams.map(t => t.zScore)
-      .filter(z => z > 0)
-      .sort((a, b) => b - a);
+    const positiveTeams = m.teams
+      .filter(t => t.zScore > 0)
+      .sort((a, b) => b.zScore - a.zScore);
     let bestVibe = 0;
+    let bestK = 0;
     let runningSum = 0;
-    for (let k = 1; k <= sortedPos.length; k++) {
-      runningSum += sortedPos[k - 1];
+    for (let k = 1; k <= positiveTeams.length; k++) {
+      runningSum += positiveTeams[k - 1].zScore;
       const candidate = runningSum / Math.sqrt(k);
-      if (candidate > bestVibe) bestVibe = candidate;
+      if (candidate > bestVibe) {
+        bestVibe = candidate;
+        bestK = k;
+      }
     }
     m.vibeZ = bestVibe;
-    m.nPositive = sortedPos.length;
+    // The exact team-seasons that won the max-over-K optimization. Used by
+    // the GOAT table to dedupe consecutive years that tell the same
+    // championship story via carryover (1989 49ers / 1989 A's still
+    // contributing at 1990 NBA Finals because no new NFL / MLB season has
+    // completed yet).
+    m.vibeContributors = positiveTeams.slice(0, bestK);
+    m.nPositive = positiveTeams.length;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
@@ -2112,8 +2122,8 @@ function renderSingleCityChart(cityName, data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-view: Cross-Sport GOAT Years
-// For each (city, year) pair, find the peak combined-z across all snapshots
-// in that year. Sort all such pairs desc; render top 50.
+// Two-pass dedupe: for each (city, year) take the highest-Vibe rating
+// window; then collapse consecutive years that tell the same story.
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderGoatYears() {
   const el = document.getElementById('goat-table-content');
@@ -2124,28 +2134,50 @@ async function renderGoatYears() {
     return;
   }
 
-  // For each (city, year), keep the rating window where the city's Vibe
-  // was highest. Filter to windows in leagues the city actually fields,
-  // so single-sport metros like Green Bay only show up at NFL Super Bowl
-  // entries (not at NBA + NHL Finals where the Packers' SB signal carries
-  // forward but Green Bay has no NBA / NHL franchise of its own to be
-  // "competing" at that moment). Sort by Vibe desc, take top 50.
-  const peaks = new Map();
+  // Pass 1: for each (city, year), keep the highest-Vibe rating window.
+  // Filter to windows in leagues the city actually fields, so single-sport
+  // metros like Green Bay only show up at NFL Super Bowl entries (not at
+  // NBA + NHL Finals where the Packers' SB signal carries forward but
+  // Green Bay has no NBA / NHL franchise to be "competing" at that moment).
+  const yearly = new Map();
   for (const s of data.snapshotMetros) {
     for (const m of s.metros) {
-      if (m.vibeZ == null) continue;
+      if (m.vibeZ == null || m.vibeZ === 0) continue;
       if (!metroParticipatesIn(m, s.kind)) continue;
-      const key = `${m.name}__${s.year}`;
-      const prev = peaks.get(key);
+      const yk = `${m.name}__${s.year}`;
+      const prev = yearly.get(yk);
       if (!prev || m.vibeZ > prev.vibeZ) {
-        peaks.set(key, {
+        // Signature: the exact (sport, team, season-year) tuples that won
+        // the max-over-K Vibe optimization. Two rating windows with the
+        // same signature are telling the same story (same teams from the
+        // same seasons doing the contributing); the only thing that
+        // changed between them is some unrelated update elsewhere in the
+        // portfolio. Pass 2 will dedupe on this.
+        const sig = m.vibeContributors
+          .map(t => `${t.sport}:${t.team}:${t.seasonYear}`)
+          .sort()
+          .join('|');
+        yearly.set(yk, {
           city: m.name, year: s.year,
-          vibeZ: m.vibeZ,
+          vibeZ: m.vibeZ, sig,
           label: s.label, date: s.date,
           teams: m.teams, nSports: m.nSports,
         });
       }
     }
+  }
+
+  // Pass 2: collapse same-signature entries to the earliest year. Example:
+  // Bay Area 1989 (1989 NFL SB window: 49ers '89 SB champ + A's '89 WS
+  // champ) and Bay Area 1990 (1990 NBA Finals window: same 1989 49ers and
+  // 1989 A's carrying forward because no new NFL / MLB season has wrapped)
+  // both have signature {NFL:49ers:1989, MLB:Athletics:1989} - just keep
+  // the year the story actually started.
+  const peaks = new Map();
+  for (const e of yearly.values()) {
+    const key = `${e.city}__${e.sig}`;
+    const prev = peaks.get(key);
+    if (!prev || e.year < prev.year) peaks.set(key, e);
   }
 
   const top = [...peaks.values()]
