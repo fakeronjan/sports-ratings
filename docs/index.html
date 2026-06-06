@@ -508,10 +508,11 @@
   <div id="cities-view" class="view">
     <p class="city-intro">
       <strong>Sports City Index.</strong>
-      Each city's score is the average <em>z-score</em> of every team it has in NBA, NFL, MLB, WNBA, NHL, and MLS,
-      standardized within each sport. A team rated +1.0 is one standard deviation above its league's mean.
-      Higher score = your city is stronger across the board.
-      Single-team cities are noted; their score is just that team's z-score and reads as a noisier signal.
+      Each team's rating is standardized to a <em>z-score</em> within its sport (NBA, NFL, MLB, WNBA, NHL, MLS).
+      A city's score combines its teams' z-scores via Stouffer's method: <code>sum_z / sqrt(n)</code>.
+      This rewards cities for sustained above-average performance across more teams - a 6-team city averaging +0.5
+      across the board outscores a 1-team city at +0.5, because the multi-team signal is more reliable.
+      Single-team cities (Stouffer reduces to their team's z-score at n=1) are noted inline.
     </p>
     <div id="city-index-content">
       <p style="color:#888;font-size:12px">Loading city data&hellip;</p>
@@ -1293,15 +1294,23 @@ async function loadCityIndex() {
     console.warn('Unmapped teams (will need to add to TEAM_TO_METRO):', unmapped);
   }
 
-  // Compute avg z-score per metro.
+  // Compute combined z-score per metro via Stouffer's method:
+  //   combined_z = sum(z_i) / sqrt(n)
+  // Standard meta-analysis approach. Rewards cities for sustained
+  // above-average performance across more teams; a 6-team city averaging
+  // +0.5 across the board outscores a 1-team city at +0.5 because the
+  // multi-team signal is more reliable. Single-team cities still rank
+  // fairly when their one team is genuinely elite (Stouffer reduces to
+  // the team's own z-score at n=1).
   const metroList = Object.values(metros).map(m => {
-    m.avgZ = m.teams.reduce((a, t) => a + t.zScore, 0) / m.teams.length;
+    const sumZ = m.teams.reduce((a, t) => a + t.zScore, 0);
+    m.combinedZ = sumZ / Math.sqrt(m.teams.length);
     m.nTeams = m.teams.length;
     // Sort teams within a city by z-score desc for visual readability.
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
-  metroList.sort((a, b) => b.avgZ - a.avgZ);
+  metroList.sort((a, b) => b.combinedZ - a.combinedZ);
 
   renderCityIndex(metroList);
 }
@@ -1317,7 +1326,7 @@ function renderCityIndex(metros) {
       </tr></thead>
       <tbody>
         ${metros.map((m, i) => {
-          const cls = m.avgZ >= 0 ? 'positive' : 'negative';
+          const cls = m.combinedZ >= 0 ? 'positive' : 'negative';
           const chips = m.teams.map(t => {
             const tcls = t.zScore >= 0 ? 'positive' : 'negative';
             const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
@@ -1327,7 +1336,7 @@ function renderCityIndex(metros) {
           return `<tr class="${cls}">
             <td class="num">${i + 1}</td>
             <td class="city">${m.name}${meta}</td>
-            <td class="num score">${(m.avgZ >= 0 ? '+' : '') + m.avgZ.toFixed(2)}</td>
+            <td class="num score">${(m.combinedZ >= 0 ? '+' : '') + m.combinedZ.toFixed(2)}</td>
             <td>${chips}</td>
           </tr>`;
         }).join('')}
