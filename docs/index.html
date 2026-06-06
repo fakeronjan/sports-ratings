@@ -623,33 +623,37 @@
 </header>
 
 <nav class="view-tabs" role="tablist">
-  <button class="active" data-view="sports" role="tab">Sports</button>
-  <button data-view="cities" role="tab">City Index</button>
+  <button class="active" data-view="current-summary" role="tab">Current Summary</button>
+  <button data-view="cross-sport-rankings" role="tab">Cross-Sport Rankings</button>
+  <button data-view="city-history" role="tab">City History</button>
+  <button data-view="goat-years" role="tab">Cross-Sport GOAT Years</button>
 </nav>
 
 <main id="main">
-  <div id="sports-view" class="view active"></div>
-  <div id="cities-view" class="view">
+  <div id="current-summary-view" class="view active"></div>
+  <div id="cross-sport-rankings-view" class="view">
     <p class="city-intro">
-      <strong>Sports City Index.</strong>
-      Each team's rating is standardized to a <em>z-score</em> within its sport (NBA, NFL, MLB, WNBA, NHL, MLS).
-      A city's score combines its teams' z-scores via Stouffer's method: <code>sum_z / sqrt(n)</code>.
-      This rewards cities for sustained above-average performance across more teams - a 6-team city averaging +0.5
-      across the board outscores a 1-team city at +0.5, because the multi-team signal is more reliable.
-      Single-team cities (Stouffer reduces to their team's z-score at n=1) are noted inline.
+      <strong>Cross-Sport Rankings.</strong>
+      Pick any historical snapshot moment (each sport's championship + Dec 31 year-end) to see the city rankings at that point in time.
+      Each team's rating is z-score-standardized within its sport; a city's score is Stouffer's combined-z: <code>sum_z / sqrt(n)</code>.
     </p>
-    <nav class="sub-tabs" role="tablist">
-      <button class="active" data-subview="current-summary" role="tab">Current Summary</button>
-      <button data-subview="cross-sport-rankings" role="tab">Cross-Sport Rankings</button>
-      <button data-subview="city-history" role="tab">City History</button>
-      <button data-subview="goat-years" role="tab">Cross-Sport GOAT Years</button>
-    </nav>
-    <div id="current-summary-view" class="subview active">
-      <p style="color:#888;font-size:12px">Loading&hellip;</p>
-    </div>
-    <div id="cross-sport-rankings-view" class="subview"></div>
-    <div id="city-history-view" class="subview"></div>
-    <div id="goat-years-view" class="subview"></div>
+    <div id="cross-sport-rankings-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
+  </div>
+  <div id="city-history-view" class="view">
+    <p class="city-intro">
+      <strong>City History.</strong>
+      Pick any city to see its combined-z trajectory across all snapshot moments since 1997. Each dot is one championship date or year-end.
+      Below the chart, the full history table shows the team-level z-score breakdown at every snapshot.
+    </p>
+    <div id="city-history-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
+  </div>
+  <div id="goat-years-view" class="view">
+    <p class="city-intro">
+      <strong>Cross-Sport GOAT Years.</strong>
+      Top 50 (city, year) peaks across the full 1997-present snapshot history. For each (city, year) pair, the peak combined-z across all snapshot moments in that year is shown.
+      Tampa Bay 2021 (Bucs SB + Lightning Cup + Rays WS), Boston 2007 (Pats 16-0 + Red Sox WS), and LA 2002 (Lakers + Angels WS) sit at the top.
+    </p>
+    <div id="goat-years-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
   </div>
 </main>
 
@@ -1138,8 +1142,9 @@ function renderCard(card, payload, error) {
     </a>`;
 }
 
-const sportsView = document.getElementById('sports-view');
-sportsView.innerHTML = SECTIONS.map(sec => `
+// Current Summary tab: original cross-sport card layout (NBA, WNBA, NFL, etc.).
+const currentSummaryView = document.getElementById('current-summary-view');
+currentSummaryView.innerHTML = SECTIONS.map(sec => `
   <section class="sport-row">
     <h2>${sec.label}</h2>
     <div class="grid">
@@ -1150,7 +1155,7 @@ sportsView.innerHTML = SECTIONS.map(sec => `
 
 SECTIONS.forEach((sec, si) => {
   sec.cards.forEach(async (card, ci) => {
-    const sectionEl = sportsView.querySelectorAll('section.sport-row')[si];
+    const sectionEl = currentSummaryView.querySelectorAll('section.sport-row')[si];
     const cards = sectionEl.querySelectorAll('.card');
     try {
       const payload = await card.load();
@@ -1162,17 +1167,24 @@ SECTIONS.forEach((sec, si) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab switching
+// Tab switching - 4 main tabs (Current Summary | Cross-Sport Rankings |
+// City History | Cross-Sport GOAT Years). Lazy-render the three city-data
+// views on first activation.
 // ─────────────────────────────────────────────────────────────────────────────
-let cityIndexLoaded = false;
+const cityRenderers = {
+  'cross-sport-rankings': renderCrossSportRankings,
+  'city-history':         renderCityHistory,
+  'goat-years':           renderGoatYears,
+};
+const cityRendered = {};
 document.querySelectorAll('nav.view-tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.view;
     document.querySelectorAll('nav.view-tabs button').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `${target}-view`));
-    if (target === 'cities' && !cityIndexLoaded) {
-      cityIndexLoaded = true;
-      loadCityIndex();
+    if (cityRenderers[target] && !cityRendered[target]) {
+      cityRendered[target] = true;
+      cityRenderers[target]();
     }
   });
 });
@@ -1518,36 +1530,6 @@ async function ensureCityData() {
 
 // Wire sub-tab clicks once on DOM ready (after the parent 'cities' tab
 // has been clicked at least once).
-function initCitySubTabs() {
-  const cityView = document.getElementById('cities-view');
-  if (cityView.dataset.subTabsInit === '1') return;
-  cityView.dataset.subTabsInit = '1';
-  const renderers = {
-    'current-summary':      renderCurrentSummary,
-    'cross-sport-rankings': renderCrossSportRankings,
-    'city-history':         renderCityHistory,
-    'goat-years':           renderGoatYears,
-  };
-  const subviewRendered = {};
-  cityView.querySelectorAll('nav.sub-tabs button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.subview;
-      cityView.querySelectorAll('nav.sub-tabs button').forEach(b => b.classList.toggle('active', b === btn));
-      cityView.querySelectorAll('.subview').forEach(v => v.classList.toggle('active', v.id === `${target}-view`));
-      if (!subviewRendered[target] && renderers[target]) {
-        subviewRendered[target] = true;
-        renderers[target]();
-      }
-    });
-  });
-  // Render the default (Current Summary) view immediately.
-  renderCurrentSummary();
-}
-
-async function loadCityIndex() {
-  initCitySubTabs();
-}
-
 // Distinct categorical palette - paired up to ~12 colors with reasonable
 // perceptual separation for line distinction at 360px height.
 const CHART_COLORS = [
@@ -1589,23 +1571,10 @@ function buildRankingsTable(metros) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-view: Current Summary
-// ─────────────────────────────────────────────────────────────────────────────
-async function renderCurrentSummary() {
-  const el = document.getElementById('current-summary-view');
-  const data = await ensureCityData();
-  if (data.error) {
-    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
-    return;
-  }
-  el.innerHTML = buildRankingsTable(data.current);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-view: Cross-Sport Rankings (date picker -> table)
+// Main view: Cross-Sport Rankings (date picker -> table)
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderCrossSportRankings() {
-  const el = document.getElementById('cross-sport-rankings-view');
+  const el = document.getElementById('cross-sport-rankings-content');
   el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
   const data = await ensureCityData();
   if (data.error) {
@@ -1664,7 +1633,7 @@ async function renderCrossSportRankings() {
 // Sub-view: City History (city picker -> line chart + table)
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderCityHistory() {
-  const el = document.getElementById('city-history-view');
+  const el = document.getElementById('city-history-content');
   el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
   const data = await ensureCityData();
   if (data.error) {
@@ -1835,7 +1804,7 @@ function renderSingleCityChart(cityName, data) {
 // in that year. Sort all such pairs desc; render top 50.
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderGoatYears() {
-  const el = document.getElementById('goat-years-view');
+  const el = document.getElementById('goat-years-content');
   el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
   const data = await ensureCityData();
   if (data.error) {
