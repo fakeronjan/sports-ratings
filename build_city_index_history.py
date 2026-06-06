@@ -169,7 +169,9 @@ for kd, label, year, kind in key_dates:
         for t in s['teams']:
             t['_z'] = (t['rating'] - mean) / std
 
-    # Flatten.
+    # Flatten. finals_status (2 = champion that season, 1 = runner-up) is
+    # preserved so the City History view can mark championship moments
+    # with a 👑 / 🥈 emoji on the chart and in the table.
     for s in sport_payloads:
         for t in s['teams']:
             if '_z' not in t:
@@ -177,11 +179,17 @@ for kd, label, year, kind in key_dates:
             name = t.get('display_name') or t.get('team') or t.get('name')
             if not name:
                 continue
+            fs = t.get('finals_status')
+            try:
+                fs_int = int(fs) if fs is not None else 0
+            except (TypeError, ValueError):
+                fs_int = 0
             entry['teams'].append({
-                'sport':  s['label'],
-                'team':   name,
-                'rating': round(float(t['rating']), 3),
-                'zScore': round(float(t['_z']), 4),
+                'sport':        s['label'],
+                'team':         name,
+                'rating':       round(float(t['rating']), 3),
+                'zScore':       round(float(t['_z']), 4),
+                'finalsStatus': fs_int,
             })
 
     if entry['teams']:

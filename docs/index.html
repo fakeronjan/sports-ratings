@@ -50,214 +50,149 @@
     padding: 24px 20px 48px;
   }
 
-  /* Tab nav between header and main views */
+  /* Tab nav - matches DUNCAN / GRIFFEY / LOBO fleet pattern */
   nav.view-tabs {
-    background: #fff;
-    border-bottom: 1px solid #e3e3e0;
-    padding: 0 20px;
+    background: #155a75;
     display: flex;
     gap: 0;
-    max-width: 1320px;
-    margin: 0 auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   nav.view-tabs button {
     background: none;
     border: none;
-    padding: 14px 22px;
+    color: #aaa;
+    padding: 12px 20px;
     font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.5px;
-    color: #888;
     cursor: pointer;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
     border-bottom: 3px solid transparent;
     transition: color 0.15s, border-color 0.15s;
     font-family: inherit;
   }
-  nav.view-tabs button:hover { color: #1a6b8a; }
-  nav.view-tabs button.active {
-    color: #ff6eb4;
-    border-bottom-color: #ff6eb4;
-  }
-  .view { display: none; }
+  nav.view-tabs button:hover { color: #fff; }
+  nav.view-tabs button.active { color: #ff6eb4; border-bottom-color: #ff6eb4; }
+
+  .view { display: none; padding: 16px; max-width: 1320px; margin: 0 auto; }
   .view.active { display: block; }
+  /* Current Summary keeps the original cards layout - its content is the
+     SECTIONS list (Basketball / Football / etc.) and uses .grid + .card. */
+  #current-summary-view { padding-top: 24px; }
 
-  nav.sub-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 18px;
-    border-bottom: 1px solid #e3e3e0;
-  }
-  nav.sub-tabs button {
-    background: none;
-    border: none;
-    padding: 10px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-    font-family: inherit;
-    letter-spacing: 0.3px;
-  }
-  nav.sub-tabs button:hover { color: #1a6b8a; }
-  nav.sub-tabs button.active {
-    color: #ff6eb4;
-    border-bottom-color: #ff6eb4;
-  }
-  .subview { display: none; }
-  .subview.active { display: block; }
-
-  .picker-row {
-    display: flex;
-    gap: 16px;
-    align-items: baseline;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-  }
-  .picker-row label {
-    font-size: 11px;
-    color: #555;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-  .picker-row select {
-    font-family: inherit;
-    font-size: 13px;
-    padding: 4px 8px;
-    border: 1px solid #d0d0cc;
-    border-radius: 3px;
+  .intro-note {
     background: #fff;
-    cursor: pointer;
-  }
-  .picker-row .snap-meta {
-    font-size: 11px;
-    color: #888;
-    line-height: 1.5;
-  }
-
-  /* Sports City Index */
-  .city-intro {
-    max-width: 900px;
-    margin-bottom: 20px;
-    color: #555;
-    font-size: 13px;
+    border-left: 3px solid #1a6b8a;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: #444;
+    border-radius: 3px;
     line-height: 1.55;
+    max-width: 1100px;
   }
-  .city-chart-wrap {
-    background: #fff;
-    border: 1px solid #e3e3e0;
-    padding: 16px 20px 12px;
-    margin-bottom: 24px;
-    border-radius: 4px;
-  }
-  .city-chart-wrap h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #555;
-    margin-bottom: 4px;
-  }
-  .city-chart-wrap .chart-sub {
-    font-size: 11px;
-    color: #888;
-    margin-bottom: 12px;
-  }
-  .city-chart-svg {
-    width: 100%;
-    height: 360px;
-    display: block;
-    overflow: visible;
-  }
-  .city-chart-svg .axis line,
-  .city-chart-svg .axis path { stroke: #ccc; stroke-width: 1; fill: none; }
-  .city-chart-svg .axis text { fill: #888; font-size: 10px; font-family: inherit; }
-  .city-chart-svg .grid line { stroke: #f0f0ec; stroke-width: 1; }
-  .city-chart-svg .zero-line { stroke: #999; stroke-width: 1; stroke-dasharray: 3,3; }
-  .city-chart-svg .city-line {
-    fill: none;
-    stroke-width: 2;
-    opacity: 0.85;
-    transition: opacity 0.15s, stroke-width 0.15s;
-  }
-  .city-chart-svg .city-line.dim { opacity: 0.15; stroke-width: 1.5; }
-  .city-chart-svg .city-line.hover { opacity: 1; stroke-width: 3; }
-  .city-chart-svg .city-label {
-    font-size: 11px;
-    font-weight: 600;
-    pointer-events: none;
-  }
-  .city-chart-legend {
-    margin-top: 8px;
+  .intro-note strong { color: #1a6b8a; }
+
+  .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 12px;
-    font-size: 11px;
-  }
-  .city-chart-legend .legend-item {
-    display: inline-flex;
+    gap: 10px;
+    margin-bottom: 14px;
     align-items: center;
-    gap: 4px;
+  }
+  .controls select {
+    padding: 7px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    background: #fff;
     cursor: pointer;
-    user-select: none;
-    padding: 2px 4px;
-    border-radius: 3px;
+    min-width: 200px;
+    font-family: inherit;
   }
-  .city-chart-legend .legend-item:hover { background: #f3f3f0; }
-  .city-chart-legend .legend-item .swatch {
-    display: inline-block;
-    width: 12px;
-    height: 3px;
-    border-radius: 2px;
+  .controls .meta-label {
+    font-size: 12px;
+    color: #888;
+    margin-left: auto;
   }
-  .city-chart-legend .legend-item.off { opacity: 0.35; }
-  .city-chart-legend .legend-item.off .swatch { background: #ccc !important; }
-  table.city-index {
+
+  /* Tables - fleet pattern (DUNCAN exact match) */
+  .tab table {
     width: 100%;
     border-collapse: collapse;
     background: #fff;
-    font-size: 13px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
-  table.city-index thead th {
-    background: #f3f3f0;
-    text-align: left;
+  .tab thead th {
+    background: #1a6b8a;
+    color: #ff6eb4;
     padding: 10px 12px;
+    text-align: left;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
-    color: #555;
-    border-bottom: 2px solid #d0d0cc;
+    white-space: nowrap;
   }
-  table.city-index thead th.num { text-align: right; }
-  table.city-index tbody td {
-    padding: 12px;
-    border-bottom: 1px solid #f0f0ec;
-    vertical-align: top;
+  .tab thead th.num { text-align: right; }
+  .tab tbody tr { border-bottom: 1px solid #f0f0f0; }
+  .tab tbody tr:last-child { border-bottom: none; }
+  .tab tbody tr:hover { background: #fafafa; }
+  .tab tbody td {
+    padding: 9px 12px;
+    font-size: 13px;
+    vertical-align: middle;
   }
-  table.city-index tbody td.num {
+  .tab tbody td.num {
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
-  table.city-index tbody td.city {
-    font-weight: 600;
-    white-space: nowrap;
+
+  .rank-cell {
+    font-weight: 700;
+    color: #888;
+    width: 36px;
+    text-align: center;
   }
-  table.city-index tbody td.score {
+  .city-cell { font-weight: 600; white-space: nowrap; }
+  .year-cell { font-weight: 700; color: #1a6b8a; white-space: nowrap; text-align: center; }
+  .linked { cursor: pointer; }
+  .linked:hover { text-decoration: underline; }
+  .city-cell.linked, .year-cell.linked { color: #1a6b8a; }
+
+  .score-cell {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    color: #1a6b8a;
+    text-align: right;
   }
-  table.city-index tbody tr.positive td.score { color: #1a6b8a; }
-  table.city-index tbody tr.negative td.score { color: #a85959; }
+  .peak-cell {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #c8a84b;
+    text-align: right;
+  }
+
+  .single-sport-tag {
+    color: #aaa;
+    font-size: 10px;
+    font-weight: 400;
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
   .team-chip {
     display: inline-block;
-    background: #f3f3f0;
-    border-radius: 4px;
-    padding: 3px 8px;
-    margin: 2px 4px 2px 0;
+    background: #f4f4f4;
+    border-radius: 3px;
+    padding: 2px 7px;
+    margin: 1px 3px 1px 0;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.5;
     white-space: nowrap;
     color: #444;
   }
@@ -266,7 +201,7 @@
     background: #1a6b8a;
     color: #fff;
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: 2px;
     font-weight: 700;
     font-size: 9px;
     letter-spacing: 0.5px;
@@ -278,14 +213,42 @@
     font-variant-numeric: tabular-nums;
     margin-left: 4px;
   }
-  .team-chip.positive .z { color: #1a6b8a; font-weight: 600; }
-  .team-chip.negative .z { color: #a85959; }
-  .city-meta {
-    color: #888;
+  .team-chip.win  { background: #fff7d6; }
+  .team-chip.win  .sport-tag { background: #c8a84b; }
+  .team-chip.win  .z { color: #1a6b8a; font-weight: 700; }
+  .team-chip.runner { background: #f0f0f0; }
+  .team-chip.runner .sport-tag { background: #888; }
+
+  /* Champion / runner-up trophy chips */
+  .trophy-chip {
+    display: inline-block;
+    background: #fff7d6;
+    color: #1a6b8a;
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin: 1px 3px 1px 0;
     font-size: 11px;
-    font-weight: 400;
-    margin-left: 6px;
+    font-weight: 700;
+    white-space: nowrap;
   }
+  .trophy-chip.runner { background: #f0f0f0; color: #444; }
+
+  /* Chart container - fleet pattern */
+  #city-history-chart-wrap {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  #city-history-chart {
+    width: 100%;
+    height: 220px;
+    display: block;
+  }
+
+  .loading { color: #888; padding: 20px; text-align: center; font-size: 13px; }
+  .error   { color: #c62828; padding: 20px; font-size: 13px; }
 
   section.sport-row { margin-bottom: 24px; }
   section.sport-row h2 {
@@ -626,34 +589,31 @@
   <button class="active" data-view="current-summary" role="tab">Current Summary</button>
   <button data-view="cross-sport-rankings" role="tab">Cross-Sport Rankings</button>
   <button data-view="city-history" role="tab">City History</button>
-  <button data-view="goat-years" role="tab">Cross-Sport GOAT Years</button>
+  <button data-view="goat-table" role="tab">GOAT Table</button>
 </nav>
 
 <main id="main">
-  <div id="current-summary-view" class="view active"></div>
-  <div id="cross-sport-rankings-view" class="view">
-    <p class="city-intro">
+  <div id="current-summary-view" class="view active tab"></div>
+  <div id="cross-sport-rankings-view" class="view tab">
+    <p class="intro-note">
       <strong>Cross-Sport Rankings.</strong>
-      Pick any historical snapshot moment (each sport's championship + Dec 31 year-end) to see the city rankings at that point in time.
-      Each team's rating is z-score-standardized within its sport; a city's score is Stouffer's combined-z: <code>sum_z / sqrt(n)</code>.
+      Pick a moment in time (each sport's championship day, or Dec 31) to see how cities ranked when scores are normalized for differences across sports. Cities with multiple teams in the same sport count just their best team in that sport.
     </p>
-    <div id="cross-sport-rankings-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
+    <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
-  <div id="city-history-view" class="view">
-    <p class="city-intro">
+  <div id="city-history-view" class="view tab">
+    <p class="intro-note">
       <strong>City History.</strong>
-      Pick any city to see its combined-z trajectory across all snapshot moments since 1997. Each dot is one championship date or year-end.
-      Below the chart, the full history table shows the team-level z-score breakdown at every snapshot.
+      Pick any city to see how its strength has moved over time. The trophy markers above the line show when one of the city's teams won a championship (👑) or was runner-up (🥈).
     </p>
-    <div id="city-history-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
+    <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
-  <div id="goat-years-view" class="view">
-    <p class="city-intro">
-      <strong>Cross-Sport GOAT Years.</strong>
-      Top 50 (city, year) peaks across the full 1997-present snapshot history. For each (city, year) pair, the peak combined-z across all snapshot moments in that year is shown.
-      Tampa Bay 2021 (Bucs SB + Lightning Cup + Rays WS), Boston 2007 (Pats 16-0 + Red Sox WS), and LA 2002 (Lakers + Angels WS) sit at the top.
+  <div id="goat-table-view" class="view tab">
+    <p class="intro-note">
+      <strong>GOAT Table.</strong>
+      Top 50 (city, year) peaks across 1997-present. Tampa Bay 2021 (Bucs Super Bowl + Lightning Cup + Rays World Series), Boston 2007 (Patriots 16-0 + Red Sox World Series), and LA 2002 sit at the top.
     </p>
-    <div id="goat-years-content"><p style="color:#888;font-size:12px">Loading&hellip;</p></div>
+    <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
 
@@ -1174,7 +1134,7 @@ SECTIONS.forEach((sec, si) => {
 const cityRenderers = {
   'cross-sport-rankings': renderCrossSportRankings,
   'city-history':         renderCityHistory,
-  'goat-years':           renderGoatYears,
+  'goat-table':           renderGoatYears,
 };
 const cityRendered = {};
 document.querySelectorAll('nav.view-tabs button').forEach(btn => {
@@ -1469,19 +1429,24 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  // Best team per (metro, sport).
-  const bestByCitySport = {};  // "metro__sport" -> {metro, sport, team, rating, zScore}
+  // Best team per (metro, sport). finalsStatus carried through from
+  // build script (history) or current_standings (live) so the City History
+  // view can show 👑 / 🥈 markers at championship moments.
+  const bestByCitySport = {};  // "metro__sport" -> {metro, sport, team, rating, zScore, finalsStatus}
   for (const s of sportPayloads) {
     for (const t of s.teams) {
       if (t.zScore == null) continue;
       const teamName = t.display_name || t.team || t.name;
       const metro = TEAM_TO_METRO[teamName];
       if (!metro) continue;
+      const fs = t.finalsStatus != null ? t.finalsStatus
+              : (t.finals_status != null ? t.finals_status : 0);
       const key = `${metro}__${s.label}`;
       if (!bestByCitySport[key] || t.zScore > bestByCitySport[key].zScore) {
         bestByCitySport[key] = {
           metro, sport: s.label, team: teamName,
           rating: t.rating, zScore: t.zScore,
+          finalsStatus: fs,
         };
       }
     }
@@ -1492,10 +1457,11 @@ function aggregateMetros(sportPayloads) {
   for (const e of Object.values(bestByCitySport)) {
     if (!metros[e.metro]) metros[e.metro] = { name: e.metro, teams: [] };
     metros[e.metro].teams.push({
-      sport:  e.sport,
-      team:   e.team,
-      rating: e.rating,
-      zScore: e.zScore,
+      sport:        e.sport,
+      team:         e.team,
+      rating:       e.rating,
+      zScore:       e.zScore,
+      finalsStatus: e.finalsStatus,
     });
   }
 
@@ -1571,33 +1537,45 @@ const CHART_COLORS = [
   '#3a86ff', '#ff7b00',
 ];
 
-// Shared: render a rankings table HTML for a metros list (sorted desc by
-// combinedZ). Used by Current Summary + Cross-Sport Rankings.
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared table + helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Render a team-chip honoring championship state (gold for champion, gray for
+// runner-up). Used in both the rankings tables and the GOAT table.
+function teamChipHtml(t) {
+  let extra = '';
+  let cls = '';
+  if (t.finalsStatus === 2) { cls = 'win';    extra = ' 👑'; }
+  else if (t.finalsStatus === 1) { cls = 'runner'; extra = ' 🥈'; }
+  const z = t.zScore.toFixed(2);
+  return `<span class="team-chip ${cls}"><span class="sport-tag">${t.sport}</span>${t.team}${extra}<span class="z">${z}</span></span>`;
+}
+
+// Fleet-style numeric formatter: no + signs on positives.
+function fmtScore(v)  { return v == null ? '-' : v.toFixed(2); }
+
+// Rankings table used by Cross-Sport Rankings. Each city name is clickable
+// (deep-links to City History).
 function buildRankingsTable(metros) {
   return `
-    <table class="city-index">
+    <table>
       <thead><tr>
-        <th class="num">#</th>
+        <th class="num">Rank</th>
         <th>City</th>
-        <th class="num" title="Stouffer's combined-z across the city's best team per sport. Measures balance: rewards consistency, penalizes drag teams.">Score</th>
-        <th class="num" title="Stouffer's of positives only (drags ignored). Measures upside: how strong are the city's good teams.">Peak</th>
+        <th class="num">Score</th>
+        <th class="num">Peak</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>
         ${metros.map((m, i) => {
-          const cls = m.combinedZ >= 0 ? 'positive' : 'negative';
-          const chips = m.teams.map(t => {
-            const tcls = t.zScore >= 0 ? 'positive' : 'negative';
-            const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
-            return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
-          }).join('');
-          const meta = m.nTeams === 1 ? ` <span class="city-meta">single sport</span>` : '';
-          const peakStr = m.peakZ != null ? '+' + m.peakZ.toFixed(2) : '-';
-          return `<tr class="${cls}">
-            <td class="num">${i + 1}</td>
-            <td class="city">${m.name}${meta}</td>
-            <td class="num score">${(m.combinedZ >= 0 ? '+' : '') + m.combinedZ.toFixed(2)}</td>
-            <td class="num" style="color:#1a6b8a;font-weight:700">${peakStr}</td>
+          const chips = m.teams.map(teamChipHtml).join('');
+          const meta = m.nTeams === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
+          return `<tr>
+            <td class="rank-cell">${i + 1}</td>
+            <td class="city-cell linked" data-city-link="${m.name}">${m.name}${meta}</td>
+            <td class="num score-cell">${fmtScore(m.combinedZ)}</td>
+            <td class="num peak-cell">${fmtScore(m.peakZ)}</td>
             <td>${chips}</td>
           </tr>`;
         }).join('')}
@@ -1606,41 +1584,84 @@ function buildRankingsTable(metros) {
   `;
 }
 
+// Wire deep-links: clicking a city name jumps to City History with that city
+// selected; clicking a year jumps to Cross-Sport Rankings on that year's
+// Year-End snapshot.
+function attachCityLinks() {
+  document.querySelectorAll('[data-city-link]').forEach(el => {
+    if (el.dataset.linkBound) return;
+    el.dataset.linkBound = '1';
+    el.addEventListener('click', () => navigateToCity(el.dataset.cityLink));
+  });
+  document.querySelectorAll('[data-year-link]').forEach(el => {
+    if (el.dataset.linkBound) return;
+    el.dataset.linkBound = '1';
+    el.addEventListener('click', () => navigateToYear(parseInt(el.dataset.yearLink, 10)));
+  });
+}
+
+function navigateToCity(cityName) {
+  document.querySelector('nav.view-tabs button[data-view="city-history"]').click();
+  // Renderer may need to mount the picker; queue the selection after the
+  // current task so the select element exists.
+  setTimeout(() => {
+    const sel = document.getElementById('ch-city');
+    if (!sel) return;
+    sel.value = cityName;
+    sel.dispatchEvent(new Event('change'));
+  }, 50);
+}
+function navigateToYear(year) {
+  document.querySelector('nav.view-tabs button[data-view="cross-sport-rankings"]').click();
+  setTimeout(() => {
+    const sel = document.getElementById('csr-date');
+    if (!sel) return;
+    for (const opt of sel.options) {
+      if (opt.textContent.startsWith(`${year}-12-31`)) {
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change'));
+        return;
+      }
+    }
+  }, 50);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Main view: Cross-Sport Rankings (date picker -> table)
+// Main view: Cross-Sport Rankings
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderCrossSportRankings() {
   const el = document.getElementById('cross-sport-rankings-content');
-  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  el.innerHTML = '<p class="loading">Loading...</p>';
   const data = await ensureCityData();
   if (data.error) {
-    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
   }
 
-  // Build picker options: snapshots grouped by year, reverse-chronological.
-  // Tack on the live "Current" as the most recent entry.
+  // Picker options: snapshots reverse-chronological, plus a live "Current"
+  // entry at the top. Labels match fleet pattern: "DATE | LABEL".
   const opts = [
-    { value: 'current', label: 'Current (Live)', year: 9999 },
+    { value: 'current', text: 'Current | Live ratings (when each sport last updated)' },
     ...data.snapshotMetros.map((s, i) => ({
       value: String(i),
-      label: s.label,
+      text:  `${s.date} | ${s.label}`,
       year:  s.year,
       date:  s.date,
     })),
   ];
+  // Sort: live first, then dates desc.
   opts.sort((a, b) => {
-    if (b.year !== a.year) return b.year - a.year;
+    if (a.value === 'current') return -1;
+    if (b.value === 'current') return 1;
     return (b.date || '').localeCompare(a.date || '');
   });
 
   el.innerHTML = `
-    <div class="picker-row">
-      <label for="csr-date">As of</label>
+    <div class="controls">
       <select id="csr-date">
-        ${opts.map(o => `<option value="${o.value}">${o.label}${o.date ? ' (' + o.date + ')' : ''}</option>`).join('')}
+        ${opts.map(o => `<option value="${o.value}">${o.text}</option>`).join('')}
       </select>
-      <div class="snap-meta" id="csr-meta"></div>
+      <span class="meta-label" id="csr-meta"></span>
     </div>
     <div id="csr-table"></div>
   `;
@@ -1652,14 +1673,15 @@ async function renderCrossSportRankings() {
     const v = sel.value;
     if (v === 'current') {
       tbl.innerHTML = buildRankingsTable(data.current);
-      meta.textContent = 'Live snapshot - each sport at its latest cron-refreshed rating.';
-      return;
+      meta.textContent = 'Current live ratings';
+    } else {
+      const snap = data.snapshotMetros[parseInt(v)];
+      tbl.innerHTML = buildRankingsTable(snap.metros);
+      const used = Object.entries(snap.snapshots_used || {})
+        .map(([k, v]) => `${k} ${v}`).join(' · ');
+      meta.textContent = used ? `Sport rating windows: ${used}` : '';
     }
-    const snap = data.snapshotMetros[parseInt(v)];
-    tbl.innerHTML = buildRankingsTable(snap.metros);
-    const used = Object.entries(snap.snapshots_used || {})
-      .map(([k, v]) => `${k} ${v}`).join('   ·   ');
-    meta.textContent = `Per-sport snapshot used: ${used}`;
+    attachCityLinks();
   };
   sel.addEventListener('change', update);
   update();
@@ -1670,33 +1692,29 @@ async function renderCrossSportRankings() {
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderCityHistory() {
   const el = document.getElementById('city-history-content');
-  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  el.innerHTML = '<p class="loading">Loading...</p>';
   const data = await ensureCityData();
   if (data.error) {
-    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
   }
 
-  // Collect every metro that appears in any snapshot.
   const cityNames = new Set();
-  for (const s of data.snapshotMetros) {
-    for (const m of s.metros) cityNames.add(m.name);
-  }
+  for (const s of data.snapshotMetros) for (const m of s.metros) cityNames.add(m.name);
   for (const m of data.current) cityNames.add(m.name);
   const allCities = [...cityNames].sort();
-
-  // Default: top current city.
   const defaultCity = data.current[0] ? data.current[0].name : allCities[0];
 
   el.innerHTML = `
-    <div class="picker-row">
-      <label for="ch-city">City</label>
+    <div class="controls">
       <select id="ch-city">
         ${allCities.map(c => `<option value="${c}"${c === defaultCity ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
     </div>
-    <div id="ch-chart"></div>
-    <div id="ch-table" style="margin-top:18px"></div>
+    <div id="city-history-chart-wrap" style="display:none">
+      <svg id="city-history-chart"></svg>
+    </div>
+    <div id="ch-table"></div>
   `;
 
   const sel = el.querySelector('#ch-city');
@@ -1706,154 +1724,134 @@ async function renderCityHistory() {
 }
 
 function renderSingleCityChart(cityName, data) {
-  const chartEl = document.getElementById('ch-chart');
+  const wrap    = document.getElementById('city-history-chart-wrap');
+  const svg     = document.getElementById('city-history-chart');
   const tableEl = document.getElementById('ch-table');
 
-  // For each snapshot, pull out this city's metro entry if any.
-  const points = [];  // {date, label, year, combinedZ, peakZ, teams}
+  const points = [];  // {date, label, year, combinedZ, peakZ, teams, hasChamp, hasRu}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
     if (!m) continue;
+    const hasChamp = m.teams.some(t => t.finalsStatus === 2);
+    const hasRu    = m.teams.some(t => t.finalsStatus === 1);
     points.push({
-      date:      s.date,
-      label:     s.label,
-      year:      s.year,
-      combinedZ: m.combinedZ,
-      peakZ:     m.peakZ,
-      teams:     m.teams,
-      kind:      s.kind,
+      date: s.date, label: s.label, year: s.year,
+      combinedZ: m.combinedZ, peakZ: m.peakZ,
+      teams: m.teams, kind: s.kind,
+      hasChamp, hasRu,
     });
   }
-  // Also append the current live snapshot at "today" so the line extends.
   const liveMetro = data.current.find(x => x.name === cityName);
   if (liveMetro) {
     const today = new Date().toISOString().slice(0, 10);
     points.push({
-      date:      today,
-      label:     'Current (Live)',
-      year:      new Date().getFullYear(),
-      combinedZ: liveMetro.combinedZ,
-      peakZ:     liveMetro.peakZ,
-      teams:     liveMetro.teams,
-      kind:      'current',
+      date: today, label: 'Current (Live)', year: new Date().getFullYear(),
+      combinedZ: liveMetro.combinedZ, peakZ: liveMetro.peakZ,
+      teams: liveMetro.teams, kind: 'current',
+      hasChamp: liveMetro.teams.some(t => t.finalsStatus === 2),
+      hasRu:    liveMetro.teams.some(t => t.finalsStatus === 1),
     });
   }
 
   if (points.length === 0) {
-    chartEl.innerHTML = `<p style="color:#888">${cityName} has no snapshots in the history.</p>`;
-    tableEl.innerHTML = '';
+    wrap.style.display = 'none';
+    tableEl.innerHTML = `<p class="loading">${cityName} has no snapshots in the history.</p>`;
     return;
   }
 
-  // Build chart: line going through (dateOrdinal, combinedZ)
-  const W = 900, H = 320, M = { top: 14, right: 30, bottom: 32, left: 40 };
-  const innerW = W - M.left - M.right;
-  const innerH = H - M.top - M.bottom;
-  const dates = points.map(p => Date.parse(p.date));
-  const xMin = dates[0];
-  const xMax = dates[dates.length - 1];
-  // Y range across both Score and Peak.
-  const allYVals = [];
+  wrap.style.display = 'block';
+
+  // Fleet chart pattern: full container width, ~180px tall, gradient
+  // polyline (teal #1a6b8a above zero, pink #ff6eb4 below). No dots on
+  // the line. Trophy markers (👑 / 🥈) above the line at championship
+  // moments, hover-titled with the source sport's team.
+  const W = svg.parentElement.clientWidth - 32;
+  const H = 220;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const CTOP = 16, CBOT = 184;
+  // Y range across Score series; force symmetric around zero so the
+  // gradient pivot reads cleanly.
+  let absMax = 0;
   for (const p of points) {
-    allYVals.push(p.combinedZ);
-    if (p.peakZ != null) allYVals.push(p.peakZ);
+    if (Math.abs(p.combinedZ) > absMax) absMax = Math.abs(p.combinedZ);
   }
-  let yMin = Math.min(...allYVals);
-  let yMax = Math.max(...allYVals);
-  const pad = Math.max((yMax - yMin) * 0.1, 0.3);
-  yMin -= pad; yMax += pad;
-  if (yMin > -0.5) yMin = -0.5;
-  if (yMax < 0.5)  yMax = 0.5;
-  const xScale = (d) => M.left + ((Date.parse(d) - xMin) / (xMax - xMin || 1)) * innerW;
-  const yScale = (v) => M.top + (1 - (v - yMin) / (yMax - yMin)) * innerH;
+  const CHART_MAX = Math.max(2, Math.ceil(absMax * 1.2));
+  const CHART_MIN = -CHART_MAX;
 
-  // Y-axis ticks
-  const yRange = yMax - yMin;
-  const yStep = yRange > 4 ? 1 : (yRange > 2 ? 0.5 : 0.25);
-  const yTicks = [];
-  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(+v.toFixed(2));
+  const px = (i) => (i / (points.length - 1)) * (W - 20) + 10;
+  const py = (v) => CBOT - ((v - CHART_MIN) / (CHART_MAX - CHART_MIN)) * (CBOT - CTOP);
+  const zeroY = py(0);
 
-  // X-axis: pick years to label (every 2-4 depending on span)
+  const polyPoints = points.map((p, i) => `${px(i).toFixed(1)},${py(p.combinedZ).toFixed(1)}`).join(' ');
+
+  // X-axis labels: year every few years depending on span.
   const yearMin = points[0].year;
   const yearMax = points[points.length - 1].year;
   const span = yearMax - yearMin;
-  const xStep = span > 20 ? 4 : (span > 10 ? 2 : 1);
-  const xTicks = [];
-  for (let y = yearMin; y <= yearMax; y += xStep) xTicks.push(y);
-  if (xTicks[xTicks.length - 1] !== yearMax) xTicks.push(yearMax);
+  const yearStep = span > 20 ? 4 : (span > 10 ? 2 : 1);
+  const xLabels = [];
+  const seen = new Set();
+  points.forEach((p, i) => {
+    if (seen.has(p.year)) return;
+    if ((p.year - yearMin) % yearStep !== 0 && p.year !== yearMax) return;
+    seen.add(p.year);
+    const x = px(i);
+    xLabels.push(`<text x="${x.toFixed(1)}" y="${CBOT + 16}" font-size="10" fill="#999" text-anchor="middle">${p.year}</text>`);
+  });
 
-  // Two paths: Score (pink) and Peak (teal). Peak is null when all teams
-  // are below mean - break the line at those points.
-  const scoreColor = '#ff6eb4';
-  const peakColor  = '#1a6b8a';
-  let scorePath = '';
-  for (let i = 0; i < points.length; i++) {
-    const x = xScale(points[i].date).toFixed(1);
-    const y = yScale(points[i].combinedZ).toFixed(1);
-    scorePath += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
-  }
-  let peakPath = '';
-  let peakPen = false;
-  for (let i = 0; i < points.length; i++) {
-    if (points[i].peakZ == null) { peakPen = false; continue; }
-    const x = xScale(points[i].date).toFixed(1);
-    const y = yScale(points[i].peakZ).toFixed(1);
-    peakPath += (peakPen ? 'L' : 'M') + x + ',' + y + ' ';
-    peakPen = true;
-  }
+  // Trophy markers - one per snapshot that contains a champion / runner-up.
+  // Champions take priority over runner-up; only one emoji per snapshot to
+  // avoid clutter, even if the city had multiple titles.
+  const trophies = [];
+  points.forEach((p, i) => {
+    if (!p.hasChamp && !p.hasRu) return;
+    const emoji = p.hasChamp ? '👑' : '🥈';
+    const wins = p.teams.filter(t => t.finalsStatus === (p.hasChamp ? 2 : 1));
+    const tip = wins.map(t => `${t.sport} ${t.team} ${p.hasChamp ? 'champion' : 'runner-up'} (${p.year})`).join(' / ');
+    const x = px(i);
+    const y = Math.max(14, py(p.combinedZ) - 12);
+    trophies.push(
+      `<g style="cursor:help">
+        <title>${tip}</title>
+        <rect x="${(x - 9).toFixed(1)}" y="${(y - 12).toFixed(1)}" width="18" height="18" fill="transparent"/>
+        <text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="14" text-anchor="middle" pointer-events="none">${emoji}</text>
+      </g>`
+    );
+  });
 
-  chartEl.innerHTML = `
-    <div class="city-chart-wrap">
-      <h3>${cityName} - combined z over time</h3>
-      <div class="chart-sub">
-        Each dot is a snapshot moment (sport championship or Dec 31 year-end).
-        <span style="display:inline-block;width:10px;height:3px;background:${scoreColor};vertical-align:2px;margin:0 4px"></span> Score (balance)
-        &nbsp;
-        <span style="display:inline-block;width:10px;height:3px;background:${peakColor};vertical-align:2px;margin:0 4px"></span> Peak (upside)
-      </div>
-      <svg class="city-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-        <g class="grid">
-          ${yTicks.map(v => `<line x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(v).toFixed(1)}" y2="${yScale(v).toFixed(1)}"/>`).join('')}
-        </g>
-        <line class="zero-line" x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(0).toFixed(1)}" y2="${yScale(0).toFixed(1)}"/>
-        <g class="axis">
-          <line x1="${M.left}" x2="${M.left + innerW}" y1="${M.top + innerH}" y2="${M.top + innerH}"/>
-          ${xTicks.map(y => {
-            const xx = M.left + ((new Date(y, 5, 30) - xMin) / (xMax - xMin || 1)) * innerW;
-            return `<text x="${xx.toFixed(1)}" y="${M.top + innerH + 16}" text-anchor="middle">${y}</text>`;
-          }).join('')}
-          ${yTicks.map(v => `<text x="${M.left - 6}" y="${(yScale(v) + 3.5).toFixed(1)}" text-anchor="end">${v >= 0 ? '+' + v.toFixed(1) : v.toFixed(1)}</text>`).join('')}
-        </g>
-        <path class="city-line" d="${peakPath}" stroke="${peakColor}" fill="none" stroke-width="2" opacity="0.85"/>
-        <path class="city-line" d="${scorePath}" stroke="${scoreColor}" fill="none" stroke-width="2"/>
-        ${points.filter(p => p.peakZ != null).map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.peakZ).toFixed(1)}" r="2.5" fill="${peakColor}" opacity="0.7"><title>${p.label} - Peak ${(p.peakZ >= 0 ? '+' : '') + p.peakZ.toFixed(2)}</title></circle>`).join('')}
-        ${points.map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.combinedZ).toFixed(1)}" r="3" fill="${scoreColor}"><title>${p.label} - Score ${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</title></circle>`).join('')}
-      </svg>
-    </div>
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="ch-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${H}">
+        <stop offset="${(zeroY / H - 0.0001).toFixed(4)}" stop-color="#1a6b8a"/>
+        <stop offset="${(zeroY / H + 0.0001).toFixed(4)}" stop-color="#ff6eb4"/>
+      </linearGradient>
+    </defs>
+    <line x1="10" y1="${zeroY.toFixed(1)}" x2="${(W - 10).toFixed(1)}" y2="${zeroY.toFixed(1)}"
+          stroke="#ccc" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="10" y1="${(CBOT + 2).toFixed(1)}" x2="${(W - 10).toFixed(1)}" y2="${(CBOT + 2).toFixed(1)}"
+          stroke="#ddd" stroke-width="1"/>
+    ${xLabels.join('')}
+    <polyline points="${polyPoints}" fill="none" stroke="url(#ch-grad)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${trophies.join('')}
   `;
 
-  // Table of snapshots (newest first) with Score + Peak columns.
-  const rows = [...points].reverse().map((p, i) => {
-    const chips = p.teams.map(t => {
-      const tcls = t.zScore >= 0 ? 'positive' : 'negative';
-      const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
-      return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
-    }).join('');
-    const cls = p.combinedZ >= 0 ? 'positive' : 'negative';
-    const peakStr = p.peakZ != null ? '+' + p.peakZ.toFixed(2) : '-';
-    return `<tr class="${cls}">
+  // Snapshot table - newest first. Year is linked to Cross-Sport Rankings.
+  const rows = [...points].reverse().map(p => {
+    const chips = p.teams.map(teamChipHtml).join('');
+    return `<tr>
       <td class="num">${p.date}</td>
-      <td class="city">${p.label}</td>
-      <td class="num score">${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</td>
-      <td class="num" style="color:#1a6b8a;font-weight:700">${peakStr}</td>
+      <td class="year-cell linked" data-year-link="${p.year}">${p.label}</td>
+      <td class="num score-cell">${fmtScore(p.combinedZ)}</td>
+      <td class="num peak-cell">${fmtScore(p.peakZ)}</td>
       <td>${chips}</td>
     </tr>`;
   }).join('');
   tableEl.innerHTML = `
-    <table class="city-index">
+    <table>
       <thead><tr>
         <th>Date</th>
-        <th>Snapshot</th>
+        <th>Rating Window</th>
         <th class="num">Score</th>
         <th class="num">Peak</th>
         <th>Teams</th>
@@ -1861,6 +1859,7 @@ function renderSingleCityChart(cityName, data) {
       <tbody>${rows}</tbody>
     </table>
   `;
+  attachCityLinks();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1869,17 +1868,16 @@ function renderSingleCityChart(cityName, data) {
 // in that year. Sort all such pairs desc; render top 50.
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderGoatYears() {
-  const el = document.getElementById('goat-years-content');
-  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  const el = document.getElementById('goat-table-content');
+  el.innerHTML = '<p class="loading">Loading...</p>';
   const data = await ensureCityData();
   if (data.error) {
-    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
   }
 
-  // (city, year) -> snapshot moment with highest peakZ in that year. peakZ
-  // is the primary sort key since "GOAT" implies upside; the moment's
-  // combinedZ (Score) and team breakdown are surfaced alongside for context.
+  // For each (city, year), keep the rating window where the city's Peak
+  // was highest. Sort by Peak desc, take top 50.
   const peaks = new Map();
   for (const s of data.snapshotMetros) {
     for (const m of s.metros) {
@@ -1888,15 +1886,10 @@ async function renderGoatYears() {
       const prev = peaks.get(key);
       if (!prev || m.peakZ > prev.peakZ) {
         peaks.set(key, {
-          city:      m.name,
-          year:      s.year,
-          combinedZ: m.combinedZ,
-          peakZ:     m.peakZ,
-          label:     s.label,
-          date:      s.date,
-          kind:      s.kind,
-          teams:     m.teams,
-          nTeams:    m.nTeams,
+          city: m.name, year: s.year,
+          combinedZ: m.combinedZ, peakZ: m.peakZ,
+          label: s.label, date: s.date,
+          teams: m.teams, nTeams: m.nTeams,
         });
       }
     }
@@ -1907,39 +1900,34 @@ async function renderGoatYears() {
     .slice(0, 50);
 
   const rows = top.map((p, i) => {
-    const chips = p.teams.map(t => {
-      const tcls = t.zScore >= 0 ? 'positive' : 'negative';
-      const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
-      return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
-    }).join('');
-    const meta = p.nTeams === 1 ? ` <span class="city-meta">single sport</span>` : '';
-    const scoreStr = (p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2);
-    return `<tr class="positive">
-      <td class="num">${i + 1}</td>
-      <td class="city">${p.city}${meta}</td>
-      <td class="num">${p.year}</td>
-      <td class="num" style="color:#1a6b8a;font-weight:700">+${p.peakZ.toFixed(2)}</td>
-      <td class="num score">${scoreStr}</td>
-      <td><span style="color:#888;font-size:11px">${p.label}</span></td>
+    const chips = p.teams.map(teamChipHtml).join('');
+    const meta = p.nTeams === 1 ? ` <span class="single-sport-tag">1 sport</span>` : '';
+    return `<tr>
+      <td class="rank-cell">${i + 1}</td>
+      <td class="city-cell linked" data-city-link="${p.city}">${p.city}${meta}</td>
+      <td class="year-cell linked" data-year-link="${p.year}">${p.year}</td>
+      <td class="num peak-cell">${fmtScore(p.peakZ)}</td>
+      <td class="num score-cell">${fmtScore(p.combinedZ)}</td>
+      <td style="color:#777;font-size:12px;white-space:nowrap">${p.label}</td>
       <td>${chips}</td>
     </tr>`;
   }).join('');
 
   el.innerHTML = `
-    <p class="snap-meta" style="margin-bottom:14px">Top 50 (city, year) Peak moments across the full snapshot history. For each (city, year) pair, the snapshot with the highest Peak (positive-only Stouffer) is surfaced; Score (combined-z with drags) shown alongside for context.</p>
-    <table class="city-index">
+    <table>
       <thead><tr>
-        <th class="num">#</th>
+        <th class="num">Rank</th>
         <th>City</th>
         <th class="num">Year</th>
-        <th class="num" title="Positive-only Stouffer combined-z (drags ignored). Measures the city's upside at this moment.">Peak</th>
-        <th class="num" title="Stouffer's combined-z (all teams). Measures balance.">Score</th>
+        <th class="num">Peak</th>
+        <th class="num">Score</th>
         <th>Peak Moment</th>
         <th>Teams</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+  attachCityLinks();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
