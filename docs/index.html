@@ -50,6 +50,119 @@
     padding: 24px 20px 48px;
   }
 
+  /* Tab nav between header and main views */
+  nav.view-tabs {
+    background: #fff;
+    border-bottom: 1px solid #e3e3e0;
+    padding: 0 20px;
+    display: flex;
+    gap: 0;
+    max-width: 1320px;
+    margin: 0 auto;
+  }
+  nav.view-tabs button {
+    background: none;
+    border: none;
+    padding: 14px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    font-family: inherit;
+  }
+  nav.view-tabs button:hover { color: #1a6b8a; }
+  nav.view-tabs button.active {
+    color: #ff6eb4;
+    border-bottom-color: #ff6eb4;
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Sports City Index */
+  .city-intro {
+    max-width: 900px;
+    margin-bottom: 20px;
+    color: #555;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  table.city-index {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 13px;
+  }
+  table.city-index thead th {
+    background: #f3f3f0;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #555;
+    border-bottom: 2px solid #d0d0cc;
+  }
+  table.city-index thead th.num { text-align: right; }
+  table.city-index tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0ec;
+    vertical-align: top;
+  }
+  table.city-index tbody td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table.city-index tbody td.city {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  table.city-index tbody td.score {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  table.city-index tbody tr.positive td.score { color: #1a6b8a; }
+  table.city-index tbody tr.negative td.score { color: #a85959; }
+  .team-chip {
+    display: inline-block;
+    background: #f3f3f0;
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin: 2px 4px 2px 0;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #444;
+  }
+  .team-chip .sport-tag {
+    display: inline-block;
+    background: #1a6b8a;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+    vertical-align: 1px;
+  }
+  .team-chip .z {
+    color: #888;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+  }
+  .team-chip.positive .z { color: #1a6b8a; font-weight: 600; }
+  .team-chip.negative .z { color: #a85959; }
+  .city-meta {
+    color: #888;
+    font-size: 11px;
+    font-weight: 400;
+    margin-left: 6px;
+  }
+
   section.sport-row { margin-bottom: 24px; }
   section.sport-row h2 {
     font-size: 11px;
@@ -385,7 +498,26 @@
   <p class="tagline">Hobbyist power rankings across basketball, football, soccer, baseball, and hockey that produce ratings that represent points / goals / runs vs. league average. Each sport has a full site with historical and GOAT ratings. Other adds include a similar model for the reality show The Challenge as well as a visualization of tennis Grand Slam championships.</p>
 </header>
 
-<main id="main"></main>
+<nav class="view-tabs" role="tablist">
+  <button class="active" data-view="sports" role="tab">Sports</button>
+  <button data-view="cities" role="tab">City Index</button>
+</nav>
+
+<main id="main">
+  <div id="sports-view" class="view active"></div>
+  <div id="cities-view" class="view">
+    <p class="city-intro">
+      <strong>Sports City Index.</strong>
+      Each city's score is the average <em>z-score</em> of every team it has in NBA, NFL, MLB, WNBA, NHL, and MLS,
+      standardized within each sport. A team rated +1.0 is one standard deviation above its league's mean.
+      Higher score = your city is stronger across the board.
+      Single-team cities are noted; their score is just that team's z-score and reads as a noisier signal.
+    </p>
+    <div id="city-index-content">
+      <p style="color:#888;font-size:12px">Loading city data&hellip;</p>
+    </div>
+  </div>
+</main>
 
 <footer>
   Models + sites built by <a href="https://github.com/fakeronjan" target="_blank">fakeronjan</a>. Open source on GitHub.
@@ -872,8 +1004,8 @@ function renderCard(card, payload, error) {
     </a>`;
 }
 
-const main = document.getElementById('main');
-main.innerHTML = SECTIONS.map(sec => `
+const sportsView = document.getElementById('sports-view');
+sportsView.innerHTML = SECTIONS.map(sec => `
   <section class="sport-row">
     <h2>${sec.label}</h2>
     <div class="grid">
@@ -884,7 +1016,7 @@ main.innerHTML = SECTIONS.map(sec => `
 
 SECTIONS.forEach((sec, si) => {
   sec.cards.forEach(async (card, ci) => {
-    const sectionEl = main.querySelectorAll('section.sport-row')[si];
+    const sectionEl = sportsView.querySelectorAll('section.sport-row')[si];
     const cards = sectionEl.querySelectorAll('.card');
     try {
       const payload = await card.load();
@@ -894,6 +1026,316 @@ SECTIONS.forEach((sec, si) => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────────────────────────────────────────
+let cityIndexLoaded = false;
+document.querySelectorAll('nav.view-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.view;
+    document.querySelectorAll('nav.view-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `${target}-view`));
+    if (target === 'cities' && !cityIndexLoaded) {
+      cityIndexLoaded = true;
+      loadCityIndex();
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sports City Index
+// Z-score each team's rating within its sport, then average across the city's
+// teams. Six sports: NBA, NFL, MLB, WNBA, NHL, MLS.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Team display name (or canonical) -> metro area string. Aggressive grouping
+// (Anaheim->LA, NJ->NY, New England->Boston, Texas Rangers->Dallas, Florida
+// Panthers->Miami, Anaheim Ducks->LA) to make multi-team metros pop. Single-team
+// cities still get listed but their score is noisier.
+const TEAM_TO_METRO = {
+  // NBA
+  'Atlanta Hawks': 'Atlanta',
+  'Boston Celtics': 'Boston',
+  'Brooklyn Nets': 'New York',
+  'Charlotte Hornets': 'Charlotte',
+  'Chicago Bulls': 'Chicago',
+  'Cleveland Cavaliers': 'Cleveland',
+  'Dallas Mavericks': 'Dallas',
+  'Denver Nuggets': 'Denver',
+  'Detroit Pistons': 'Detroit',
+  'Golden State Warriors': 'San Francisco',
+  'Houston Rockets': 'Houston',
+  'Indiana Pacers': 'Indianapolis',
+  'Los Angeles Clippers': 'Los Angeles',
+  'Los Angeles Lakers': 'Los Angeles',
+  'Memphis Grizzlies': 'Memphis',
+  'Miami Heat': 'Miami',
+  'Milwaukee Bucks': 'Milwaukee',
+  'Minnesota Timberwolves': 'Minneapolis',
+  'New Orleans Pelicans': 'New Orleans',
+  'New York Knicks': 'New York',
+  'Oklahoma City Thunder': 'Oklahoma City',
+  'Orlando Magic': 'Orlando',
+  'Philadelphia 76ers': 'Philadelphia',
+  'Phoenix Suns': 'Phoenix',
+  'Portland Trail Blazers': 'Portland',
+  'Sacramento Kings': 'Sacramento',
+  'San Antonio Spurs': 'San Antonio',
+  'Toronto Raptors': 'Toronto',
+  'Utah Jazz': 'Salt Lake City',
+  'Washington Wizards': 'Washington',
+  // WNBA
+  'Atlanta Dream': 'Atlanta',
+  'Chicago Sky': 'Chicago',
+  'Connecticut Sun': 'Hartford',
+  'Dallas Wings': 'Dallas',
+  'Golden State Valkyries': 'San Francisco',
+  'Indiana Fever': 'Indianapolis',
+  'Las Vegas Aces': 'Las Vegas',
+  'Los Angeles Sparks': 'Los Angeles',
+  'Minnesota Lynx': 'Minneapolis',
+  'New York Liberty': 'New York',
+  'Phoenix Mercury': 'Phoenix',
+  'Portland Fire': 'Portland',
+  'Seattle Storm': 'Seattle',
+  'Toronto Tempo': 'Toronto',
+  'Washington Mystics': 'Washington',
+  // NFL
+  'Arizona Cardinals': 'Phoenix',
+  'Atlanta Falcons': 'Atlanta',
+  'Baltimore Ravens': 'Baltimore',
+  'Buffalo Bills': 'Buffalo',
+  'Carolina Panthers': 'Charlotte',
+  'Chicago Bears': 'Chicago',
+  'Cincinnati Bengals': 'Cincinnati',
+  'Cleveland Browns': 'Cleveland',
+  'Dallas Cowboys': 'Dallas',
+  'Denver Broncos': 'Denver',
+  'Detroit Lions': 'Detroit',
+  'Green Bay Packers': 'Green Bay',
+  'Houston Texans': 'Houston',
+  'Indianapolis Colts': 'Indianapolis',
+  'Jacksonville Jaguars': 'Jacksonville',
+  'Kansas City Chiefs': 'Kansas City',
+  'Las Vegas Raiders': 'Las Vegas',
+  'Los Angeles Chargers': 'Los Angeles',
+  'Los Angeles Rams': 'Los Angeles',
+  'Miami Dolphins': 'Miami',
+  'Minnesota Vikings': 'Minneapolis',
+  'New England Patriots': 'Boston',
+  'New Orleans Saints': 'New Orleans',
+  'New York Giants': 'New York',
+  'New York Jets': 'New York',
+  'Philadelphia Eagles': 'Philadelphia',
+  'Pittsburgh Steelers': 'Pittsburgh',
+  'San Francisco 49ers': 'San Francisco',
+  'Seattle Seahawks': 'Seattle',
+  'Tampa Bay Buccaneers': 'Tampa',
+  'Tennessee Titans': 'Nashville',
+  'Washington Commanders': 'Washington',
+  // MLB
+  'Arizona Diamondbacks': 'Phoenix',
+  'Atlanta Braves': 'Atlanta',
+  'Baltimore Orioles': 'Baltimore',
+  'Boston Red Sox': 'Boston',
+  'Chicago Cubs': 'Chicago',
+  'Chicago White Sox': 'Chicago',
+  'Cincinnati Reds': 'Cincinnati',
+  'Cleveland Guardians': 'Cleveland',
+  'Colorado Rockies': 'Denver',
+  'Detroit Tigers': 'Detroit',
+  'Houston Astros': 'Houston',
+  'Kansas City Royals': 'Kansas City',
+  'Las Vegas Athletics': 'Las Vegas',
+  'Athletics': 'Sacramento',  // Era-aware display for 2025-2027 Sacramento years
+  'Los Angeles Angels': 'Los Angeles',
+  'Los Angeles Dodgers': 'Los Angeles',
+  'Miami Marlins': 'Miami',
+  'Milwaukee Brewers': 'Milwaukee',
+  'Minnesota Twins': 'Minneapolis',
+  'New York Mets': 'New York',
+  'New York Yankees': 'New York',
+  'Oakland Athletics': 'Oakland',
+  'Philadelphia Phillies': 'Philadelphia',
+  'Pittsburgh Pirates': 'Pittsburgh',
+  'San Diego Padres': 'San Diego',
+  'San Francisco Giants': 'San Francisco',
+  'Seattle Mariners': 'Seattle',
+  'St. Louis Cardinals': 'St. Louis',
+  'Tampa Bay Rays': 'Tampa',
+  'Texas Rangers': 'Dallas',
+  'Toronto Blue Jays': 'Toronto',
+  'Washington Nationals': 'Washington',
+  // NHL
+  'Anaheim Ducks': 'Los Angeles',
+  'Boston Bruins': 'Boston',
+  'Buffalo Sabres': 'Buffalo',
+  'Calgary Flames': 'Calgary',
+  'Carolina Hurricanes': 'Raleigh',
+  'Chicago Blackhawks': 'Chicago',
+  'Colorado Avalanche': 'Denver',
+  'Columbus Blue Jackets': 'Columbus',
+  'Dallas Stars': 'Dallas',
+  'Detroit Red Wings': 'Detroit',
+  'Edmonton Oilers': 'Edmonton',
+  'Florida Panthers': 'Miami',
+  'Los Angeles Kings': 'Los Angeles',
+  'Minnesota Wild': 'Minneapolis',
+  'Montreal Canadiens': 'Montreal',
+  'Nashville Predators': 'Nashville',
+  'New Jersey Devils': 'New York',
+  'New York Islanders': 'New York',
+  'New York Rangers': 'New York',
+  'Ottawa Senators': 'Ottawa',
+  'Philadelphia Flyers': 'Philadelphia',
+  'Pittsburgh Penguins': 'Pittsburgh',
+  'San Jose Sharks': 'San Francisco',
+  'Seattle Kraken': 'Seattle',
+  'St. Louis Blues': 'St. Louis',
+  'Tampa Bay Lightning': 'Tampa',
+  'Toronto Maple Leafs': 'Toronto',
+  'Utah Mammoth': 'Salt Lake City',
+  'Utah Hockey Club': 'Salt Lake City',
+  'Vancouver Canucks': 'Vancouver',
+  'Vegas Golden Knights': 'Las Vegas',
+  'Washington Capitals': 'Washington',
+  'Winnipeg Jets': 'Winnipeg',
+  // MLS
+  'Atlanta United FC': 'Atlanta',
+  'Austin FC': 'Austin',
+  'CF Montréal': 'Montreal',
+  'Charlotte FC': 'Charlotte',
+  'Chicago Fire FC': 'Chicago',
+  'Colorado Rapids': 'Denver',
+  'Columbus Crew': 'Columbus',
+  'D.C. United': 'Washington',
+  'FC Cincinnati': 'Cincinnati',
+  'FC Dallas': 'Dallas',
+  'Houston Dynamo FC': 'Houston',
+  'Inter Miami CF': 'Miami',
+  'LA Galaxy': 'Los Angeles',
+  'LAFC': 'Los Angeles',
+  'Minnesota United FC': 'Minneapolis',
+  'Nashville SC': 'Nashville',
+  'New England Revolution': 'Boston',
+  'New York City FC': 'New York',
+  'New York Red Bulls': 'New York',
+  'Red Bull New York': 'New York',
+  'Orlando City SC': 'Orlando',
+  'Philadelphia Union': 'Philadelphia',
+  'Portland Timbers': 'Portland',
+  'Real Salt Lake': 'Salt Lake City',
+  'San Diego FC': 'San Diego',
+  'San Jose Earthquakes': 'San Francisco',
+  'Seattle Sounders FC': 'Seattle',
+  'Sporting Kansas City': 'Kansas City',
+  'St. Louis CITY SC': 'St. Louis',
+  'Toronto FC': 'Toronto',
+  'Vancouver Whitecaps FC': 'Vancouver',
+  'Vancouver Whitecaps': 'Vancouver',
+};
+
+const CITY_SPORTS = [
+  { repo: 'duncan',  label: 'NBA' },
+  { repo: 'lobo',    label: 'WNBA' },
+  { repo: 'dillon',  label: 'NFL' },
+  { repo: 'griffey', label: 'MLB' },
+  { repo: 'sakic',   label: 'NHL' },
+  { repo: 'cobi',    label: 'MLS' },
+];
+
+async function loadCityIndex() {
+  const containerEl = document.getElementById('city-index-content');
+  let sportPayloads;
+  try {
+    sportPayloads = await Promise.all(CITY_SPORTS.map(async s => {
+      const d = await fetchJson(`${GH}/${s.repo}/data/current_standings.json`);
+      return { ...s, teams: d.teams };
+    }));
+  } catch (e) {
+    containerEl.innerHTML = `<p style="color:#a85959">Could not load city data. (${e.message})</p>`;
+    return;
+  }
+
+  // Z-score each team within its sport.
+  for (const s of sportPayloads) {
+    const ratings = s.teams.map(t => t.rating);
+    const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    const variance = ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length;
+    const std = Math.sqrt(variance);
+    for (const t of s.teams) {
+      t.zScore = std > 0 ? (t.rating - mean) / std : 0;
+    }
+  }
+
+  // Aggregate by metro.
+  const metros = {};
+  const unmapped = [];
+  for (const s of sportPayloads) {
+    for (const t of s.teams) {
+      const teamName = t.display_name || t.team || t.name;
+      const metro = TEAM_TO_METRO[teamName];
+      if (!metro) {
+        unmapped.push(`${s.label}: ${teamName}`);
+        continue;
+      }
+      if (!metros[metro]) metros[metro] = { name: metro, teams: [] };
+      metros[metro].teams.push({
+        sport:   s.label,
+        team:    teamName,
+        rating:  t.rating,
+        zScore:  t.zScore,
+      });
+    }
+  }
+  if (unmapped.length) {
+    console.warn('Unmapped teams (will need to add to TEAM_TO_METRO):', unmapped);
+  }
+
+  // Compute avg z-score per metro.
+  const metroList = Object.values(metros).map(m => {
+    m.avgZ = m.teams.reduce((a, t) => a + t.zScore, 0) / m.teams.length;
+    m.nTeams = m.teams.length;
+    // Sort teams within a city by z-score desc for visual readability.
+    m.teams.sort((a, b) => b.zScore - a.zScore);
+    return m;
+  });
+  metroList.sort((a, b) => b.avgZ - a.avgZ);
+
+  renderCityIndex(metroList);
+}
+
+function renderCityIndex(metros) {
+  const html = `
+    <table class="city-index">
+      <thead><tr>
+        <th class="num">#</th>
+        <th>City</th>
+        <th class="num">Score</th>
+        <th>Teams</th>
+      </tr></thead>
+      <tbody>
+        ${metros.map((m, i) => {
+          const cls = m.avgZ >= 0 ? 'positive' : 'negative';
+          const chips = m.teams.map(t => {
+            const tcls = t.zScore >= 0 ? 'positive' : 'negative';
+            const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
+            return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
+          }).join('');
+          const meta = m.nTeams === 1 ? ` <span class="city-meta">single team</span>` : '';
+          return `<tr class="${cls}">
+            <td class="num">${i + 1}</td>
+            <td class="city">${m.name}${meta}</td>
+            <td class="num score">${(m.avgZ >= 0 ? '+' : '') + m.avgZ.toFixed(2)}</td>
+            <td>${chips}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+  document.getElementById('city-index-content').innerHTML = html;
+}
 
 // Auto-resize: when embedded in an iframe, post our current scroll height
 // to the parent so the iframe can size itself with no internal scroll.
