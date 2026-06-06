@@ -81,6 +81,62 @@
   .view { display: none; }
   .view.active { display: block; }
 
+  nav.sub-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #e3e3e0;
+  }
+  nav.sub-tabs button {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+  }
+  nav.sub-tabs button:hover { color: #1a6b8a; }
+  nav.sub-tabs button.active {
+    color: #ff6eb4;
+    border-bottom-color: #ff6eb4;
+  }
+  .subview { display: none; }
+  .subview.active { display: block; }
+
+  .picker-row {
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .picker-row label {
+    font-size: 11px;
+    color: #555;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .picker-row select {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 8px;
+    border: 1px solid #d0d0cc;
+    border-radius: 3px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .picker-row .snap-meta {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.5;
+  }
+
   /* Sports City Index */
   .city-intro {
     max-width: 900px;
@@ -581,12 +637,19 @@
       This rewards cities for sustained above-average performance across more teams - a 6-team city averaging +0.5
       across the board outscores a 1-team city at +0.5, because the multi-team signal is more reliable.
       Single-team cities (Stouffer reduces to their team's z-score at n=1) are noted inline.
-      Historical snapshots use each sport's rating closest to Dec 31 of that year.
     </p>
-    <div id="city-chart-container"></div>
-    <div id="city-index-content">
-      <p style="color:#888;font-size:12px">Loading city data&hellip;</p>
+    <nav class="sub-tabs" role="tablist">
+      <button class="active" data-subview="current-summary" role="tab">Current Summary</button>
+      <button data-subview="cross-sport-rankings" role="tab">Cross-Sport Rankings</button>
+      <button data-subview="city-history" role="tab">City History</button>
+      <button data-subview="goat-years" role="tab">Cross-Sport GOAT Years</button>
+    </nav>
+    <div id="current-summary-view" class="subview active">
+      <p style="color:#888;font-size:12px">Loading&hellip;</p>
     </div>
+    <div id="cross-sport-rankings-view" class="subview"></div>
+    <div id="city-history-view" class="subview"></div>
+    <div id="goat-years-view" class="subview"></div>
   </div>
 </main>
 
@@ -1407,53 +1470,82 @@ function aggregateMetros(sportPayloads) {
   });
 }
 
-async function loadCityIndex() {
-  const tableEl = document.getElementById('city-index-content');
-  const chartEl = document.getElementById('city-chart-container');
-  let sportPayloads, history;
+// Cached state used by all four sub-views.
+let cityData = null;  // { current: [metros], snapshotMetros: [{date, label, year, kind, metros}] }
+
+async function ensureCityData() {
+  if (cityData) return cityData;
   try {
     const fetches = CITY_SPORTS.map(s =>
       fetchJson(`${GH}/${s.repo}/data/current_standings.json`).then(d => ({ ...s, teams: d.teams }))
     );
     fetches.push(fetchJson('./data/city_index_history.json').then(d => ({ __history: d })));
     const results = await Promise.all(fetches);
-    sportPayloads = results.filter(r => !r.__history);
-    history = results.find(r => r.__history).__history;
+    const sportPayloads = results.filter(r => !r.__history);
+    const history = results.find(r => r.__history).__history;
+
+    // Current snapshot (live)
+    const currentMetros = aggregateMetros(sportPayloads);
+    currentMetros.sort((a, b) => b.combinedZ - a.combinedZ);
+
+    // Historical snapshots: for each pre-computed snapshot, group teams by
+    // sport then aggregate by metro via the same TEAM_TO_METRO mapping.
+    const snapshotMetros = (history.snapshots || []).map(snap => {
+      const grouped = {};
+      for (const t of snap.teams) {
+        if (!grouped[t.sport]) grouped[t.sport] = { label: t.sport, teams: [] };
+        grouped[t.sport].teams.push({ rating: t.rating, team: t.team });
+      }
+      const metros = aggregateMetros(Object.values(grouped));
+      metros.sort((a, b) => b.combinedZ - a.combinedZ);
+      return {
+        date:           snap.date,
+        label:          snap.label,
+        year:           snap.year,
+        kind:           snap.kind,
+        snapshots_used: snap.snapshots_used,
+        metros:         metros,
+      };
+    });
+
+    cityData = { current: currentMetros, snapshotMetros };
+    return cityData;
   } catch (e) {
-    tableEl.innerHTML = `<p style="color:#a85959">Could not load city data. (${e.message})</p>`;
-    return;
+    cityData = { error: e.message };
+    return cityData;
   }
+}
 
-  // Current snapshot
-  const currentMetros = aggregateMetros(sportPayloads);
-  currentMetros.sort((a, b) => b.combinedZ - a.combinedZ);
+// Wire sub-tab clicks once on DOM ready (after the parent 'cities' tab
+// has been clicked at least once).
+function initCitySubTabs() {
+  const cityView = document.getElementById('cities-view');
+  if (cityView.dataset.subTabsInit === '1') return;
+  cityView.dataset.subTabsInit = '1';
+  const renderers = {
+    'current-summary':      renderCurrentSummary,
+    'cross-sport-rankings': renderCrossSportRankings,
+    'city-history':         renderCityHistory,
+    'goat-years':           renderGoatYears,
+  };
+  const subviewRendered = {};
+  cityView.querySelectorAll('nav.sub-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.subview;
+      cityView.querySelectorAll('nav.sub-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+      cityView.querySelectorAll('.subview').forEach(v => v.classList.toggle('active', v.id === `${target}-view`));
+      if (!subviewRendered[target] && renderers[target]) {
+        subviewRendered[target] = true;
+        renderers[target]();
+      }
+    });
+  });
+  // Render the default (Current Summary) view immediately.
+  renderCurrentSummary();
+}
 
-  // Historical timeline: for each year in history JSON, group teams by sport
-  // then run the same aggregation. Years are emitted by Python in iteration
-  // order (1997 -> 2025); current snapshot tacks on as the year's calendar year.
-  const timeline = [];
-  for (const yearStr of Object.keys(history)) {
-    const yearTeams = history[yearStr].teams;
-    const grouped = {};
-    for (const t of yearTeams) {
-      if (!grouped[t.sport]) grouped[t.sport] = { label: t.sport, teams: [] };
-      grouped[t.sport].teams.push({ rating: t.rating, team: t.team });
-    }
-    // z-scores were already pre-computed but aggregateMetros redoes them
-    // for consistency. Safe; deterministic at the team level.
-    const metros = aggregateMetros(Object.values(grouped));
-    const scoresByMetro = {};
-    for (const m of metros) scoresByMetro[m.name] = m.combinedZ;
-    timeline.push({ year: parseInt(yearStr), scoresByMetro });
-  }
-  // Append current as the in-progress year (using current calendar year label).
-  const currentYear = new Date().getFullYear();
-  const currentScoresByMetro = {};
-  for (const m of currentMetros) currentScoresByMetro[m.name] = m.combinedZ;
-  timeline.push({ year: currentYear, scoresByMetro: currentScoresByMetro });
-
-  renderCityChart(chartEl, timeline, currentMetros);
-  renderCityIndex(currentMetros);
+async function loadCityIndex() {
+  initCitySubTabs();
 }
 
 // Distinct categorical palette - paired up to ~12 colors with reasonable
@@ -1464,151 +1556,10 @@ const CHART_COLORS = [
   '#3a86ff', '#ff7b00',
 ];
 
-function renderCityChart(container, timeline, currentMetros) {
-  // Pick top N cities by current combined-z to show by default.
-  const DEFAULT_N = 8;
-  // Hard-filter to multi-team cities? Tempting (single-team metros are
-  // noisy historically), but the user did want to see them rise/fall too.
-  // Compromise: default-show only those that have at least 5 data points
-  // in history (cuts the noisiest single-team blips while keeping the
-  // dominant ones like Spurs / Hurricanes visible).
-  const visibilityFilter = (m) => {
-    let count = 0;
-    for (const t of timeline) if (t.scoresByMetro[m.name] != null) count++;
-    return count >= 5;
-  };
-  const defaultCities = currentMetros
-    .filter(visibilityFilter)
-    .slice(0, DEFAULT_N)
-    .map(m => m.name);
-
-  // Compute y-range across all timeline scores for default cities.
-  let yMin = Infinity, yMax = -Infinity;
-  for (const t of timeline) {
-    for (const name of defaultCities) {
-      const v = t.scoresByMetro[name];
-      if (v == null) continue;
-      if (v < yMin) yMin = v;
-      if (v > yMax) yMax = v;
-    }
-  }
-  // Slight padding so labels don't bump axes.
-  const pad = (yMax - yMin) * 0.08;
-  yMin -= pad; yMax += pad;
-  if (yMin > -0.5) yMin = -0.5;
-  if (yMax < 0.5)  yMax = 0.5;
-
-  const W = 900, H = 360, M = { top: 12, right: 110, bottom: 32, left: 38 };
-  const innerW = W - M.left - M.right;
-  const innerH = H - M.top - M.bottom;
-
-  const xMin = timeline[0].year;
-  const xMax = timeline[timeline.length - 1].year;
-  const xScale = (year) => M.left + ((year - xMin) / (xMax - xMin || 1)) * innerW;
-  const yScale = (val) => M.top + (1 - (val - yMin) / (yMax - yMin)) * innerH;
-
-  // Y axis ticks at nice intervals
-  const yRange = yMax - yMin;
-  const yStep = yRange > 4 ? 1 : (yRange > 2 ? 0.5 : 0.25);
-  const yTicks = [];
-  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(+v.toFixed(2));
-
-  // X axis: every 4-5 years
-  const xStep = (xMax - xMin) > 15 ? 4 : 2;
-  const xTicks = [];
-  for (let y = xMin; y <= xMax; y += xStep) xTicks.push(y);
-  if (xTicks[xTicks.length - 1] !== xMax) xTicks.push(xMax);
-
-  // Per-city color assignment (defaultCities only)
-  const cityColors = {};
-  defaultCities.forEach((c, i) => { cityColors[c] = CHART_COLORS[i % CHART_COLORS.length]; });
-
-  // Build path data per city
-  const cityPaths = defaultCities.map(name => {
-    const points = [];
-    for (const t of timeline) {
-      const v = t.scoresByMetro[name];
-      if (v == null) { points.push(null); continue; }
-      points.push([xScale(t.year), yScale(v)]);
-    }
-    // Build path, breaking at nulls
-    let d = '';
-    let pen = false;
-    for (const p of points) {
-      if (!p) { pen = false; continue; }
-      d += (pen ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1) + ' ';
-      pen = true;
-    }
-    return { name, color: cityColors[name], d, finalPoint: points[points.length - 1] };
-  });
-
-  // Sort city labels by final-year value desc so labels stack readably
-  const labelStack = cityPaths
-    .filter(c => c.finalPoint)
-    .sort((a, b) => a.finalPoint[1] - b.finalPoint[1]);
-
-  // Render SVG
-  const svg = `
-    <div class="city-chart-wrap">
-      <h3>Sports City Index, 1997-${xMax}</h3>
-      <div class="chart-sub">Top ${defaultCities.length} cities by current combined z. Click a legend item to toggle. Snapshots taken at each sport's rating nearest Dec 31 of that year.</div>
-      <svg class="city-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-        <g class="grid">
-          ${yTicks.map(v => `<line x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(v).toFixed(1)}" y2="${yScale(v).toFixed(1)}"/>`).join('')}
-        </g>
-        <line class="zero-line" x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(0).toFixed(1)}" y2="${yScale(0).toFixed(1)}"/>
-        <g class="axis">
-          <line x1="${M.left}" x2="${M.left + innerW}" y1="${M.top + innerH}" y2="${M.top + innerH}"/>
-          ${xTicks.map(y => `
-            <text x="${xScale(y).toFixed(1)}" y="${M.top + innerH + 16}" text-anchor="middle">${y}</text>
-          `).join('')}
-          ${yTicks.map(v => `
-            <text x="${M.left - 6}" y="${yScale(v).toFixed(1) + 3.5}" text-anchor="end">${v >= 0 ? '+' + v.toFixed(1) : v.toFixed(1)}</text>
-          `).join('')}
-        </g>
-        ${cityPaths.map(c => `
-          <path class="city-line" data-city="${c.name}" d="${c.d}" stroke="${c.color}"/>
-        `).join('')}
-        ${labelStack.map(c => `
-          <text class="city-label" x="${M.left + innerW + 6}" y="${c.finalPoint[1].toFixed(1) + 3.5}" fill="${c.color}">${c.name}</text>
-        `).join('')}
-      </svg>
-      <div class="city-chart-legend">
-        ${defaultCities.map(name => `
-          <span class="legend-item" data-city="${name}">
-            <span class="swatch" style="background:${cityColors[name]}"></span>
-            ${name}
-          </span>
-        `).join('')}
-      </div>
-    </div>
-  `;
-  container.innerHTML = svg;
-
-  // Legend click toggles
-  const lines = container.querySelectorAll('.city-line');
-  const labels = container.querySelectorAll('.city-label');
-  container.querySelectorAll('.legend-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const city = item.dataset.city;
-      item.classList.toggle('off');
-      const off = item.classList.contains('off');
-      lines.forEach(l => {
-        if (l.dataset.city === city) {
-          l.style.display = off ? 'none' : '';
-        }
-      });
-      labels.forEach(l => {
-        if (l.textContent === city) {
-          l.style.display = off ? 'none' : '';
-        }
-      });
-    });
-  });
-}
-
-function renderCityIndex(metros) {
-  const html = `
+// Shared: render a rankings table HTML for a metros list (sorted desc by
+// combinedZ). Used by Current Summary + Cross-Sport Rankings.
+function buildRankingsTable(metros) {
+  return `
     <table class="city-index">
       <thead><tr>
         <th class="num">#</th>
@@ -1635,8 +1586,327 @@ function renderCityIndex(metros) {
       </tbody>
     </table>
   `;
-  document.getElementById('city-index-content').innerHTML = html;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Current Summary
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderCurrentSummary() {
+  const el = document.getElementById('current-summary-view');
+  const data = await ensureCityData();
+  if (data.error) {
+    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    return;
+  }
+  el.innerHTML = buildRankingsTable(data.current);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Cross-Sport Rankings (date picker -> table)
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderCrossSportRankings() {
+  const el = document.getElementById('cross-sport-rankings-view');
+  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  const data = await ensureCityData();
+  if (data.error) {
+    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    return;
+  }
+
+  // Build picker options: snapshots grouped by year, reverse-chronological.
+  // Tack on the live "Current" as the most recent entry.
+  const opts = [
+    { value: 'current', label: 'Current (Live)', year: 9999 },
+    ...data.snapshotMetros.map((s, i) => ({
+      value: String(i),
+      label: s.label,
+      year:  s.year,
+      date:  s.date,
+    })),
+  ];
+  opts.sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return (b.date || '').localeCompare(a.date || '');
+  });
+
+  el.innerHTML = `
+    <div class="picker-row">
+      <label for="csr-date">As of</label>
+      <select id="csr-date">
+        ${opts.map(o => `<option value="${o.value}">${o.label}${o.date ? ' (' + o.date + ')' : ''}</option>`).join('')}
+      </select>
+      <div class="snap-meta" id="csr-meta"></div>
+    </div>
+    <div id="csr-table"></div>
+  `;
+
+  const sel  = el.querySelector('#csr-date');
+  const tbl  = el.querySelector('#csr-table');
+  const meta = el.querySelector('#csr-meta');
+  const update = () => {
+    const v = sel.value;
+    if (v === 'current') {
+      tbl.innerHTML = buildRankingsTable(data.current);
+      meta.textContent = 'Live snapshot - each sport at its latest cron-refreshed rating.';
+      return;
+    }
+    const snap = data.snapshotMetros[parseInt(v)];
+    tbl.innerHTML = buildRankingsTable(snap.metros);
+    const used = Object.entries(snap.snapshots_used || {})
+      .map(([k, v]) => `${k} ${v}`).join('   ·   ');
+    meta.textContent = `Per-sport snapshot used: ${used}`;
+  };
+  sel.addEventListener('change', update);
+  update();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: City History (city picker -> line chart + table)
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderCityHistory() {
+  const el = document.getElementById('city-history-view');
+  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  const data = await ensureCityData();
+  if (data.error) {
+    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    return;
+  }
+
+  // Collect every metro that appears in any snapshot.
+  const cityNames = new Set();
+  for (const s of data.snapshotMetros) {
+    for (const m of s.metros) cityNames.add(m.name);
+  }
+  for (const m of data.current) cityNames.add(m.name);
+  const allCities = [...cityNames].sort();
+
+  // Default: top current city.
+  const defaultCity = data.current[0] ? data.current[0].name : allCities[0];
+
+  el.innerHTML = `
+    <div class="picker-row">
+      <label for="ch-city">City</label>
+      <select id="ch-city">
+        ${allCities.map(c => `<option value="${c}"${c === defaultCity ? ' selected' : ''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div id="ch-chart"></div>
+    <div id="ch-table" style="margin-top:18px"></div>
+  `;
+
+  const sel = el.querySelector('#ch-city');
+  const update = () => renderSingleCityChart(sel.value, data);
+  sel.addEventListener('change', update);
+  update();
+}
+
+function renderSingleCityChart(cityName, data) {
+  const chartEl = document.getElementById('ch-chart');
+  const tableEl = document.getElementById('ch-table');
+
+  // For each snapshot, pull out this city's metro entry if any.
+  const points = [];  // {date, label, year, combinedZ, teams}
+  for (const s of data.snapshotMetros) {
+    const m = s.metros.find(x => x.name === cityName);
+    if (!m) continue;
+    points.push({
+      date:      s.date,
+      label:     s.label,
+      year:      s.year,
+      combinedZ: m.combinedZ,
+      teams:     m.teams,
+      kind:      s.kind,
+    });
+  }
+  // Also append the current live snapshot at "today" so the line extends.
+  const liveMetro = data.current.find(x => x.name === cityName);
+  if (liveMetro) {
+    const today = new Date().toISOString().slice(0, 10);
+    points.push({
+      date:      today,
+      label:     'Current (Live)',
+      year:      new Date().getFullYear(),
+      combinedZ: liveMetro.combinedZ,
+      teams:     liveMetro.teams,
+      kind:      'current',
+    });
+  }
+
+  if (points.length === 0) {
+    chartEl.innerHTML = `<p style="color:#888">${cityName} has no snapshots in the history.</p>`;
+    tableEl.innerHTML = '';
+    return;
+  }
+
+  // Build chart: line going through (dateOrdinal, combinedZ)
+  const W = 900, H = 320, M = { top: 14, right: 30, bottom: 32, left: 40 };
+  const innerW = W - M.left - M.right;
+  const innerH = H - M.top - M.bottom;
+  const dates = points.map(p => Date.parse(p.date));
+  const xMin = dates[0];
+  const xMax = dates[dates.length - 1];
+  let yMin = Math.min(...points.map(p => p.combinedZ));
+  let yMax = Math.max(...points.map(p => p.combinedZ));
+  const pad = Math.max((yMax - yMin) * 0.1, 0.3);
+  yMin -= pad; yMax += pad;
+  if (yMin > -0.5) yMin = -0.5;
+  if (yMax < 0.5)  yMax = 0.5;
+  const xScale = (d) => M.left + ((Date.parse(d) - xMin) / (xMax - xMin || 1)) * innerW;
+  const yScale = (v) => M.top + (1 - (v - yMin) / (yMax - yMin)) * innerH;
+
+  // Y-axis ticks
+  const yRange = yMax - yMin;
+  const yStep = yRange > 4 ? 1 : (yRange > 2 ? 0.5 : 0.25);
+  const yTicks = [];
+  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(+v.toFixed(2));
+
+  // X-axis: pick years to label (every 2-4 depending on span)
+  const yearMin = points[0].year;
+  const yearMax = points[points.length - 1].year;
+  const span = yearMax - yearMin;
+  const xStep = span > 20 ? 4 : (span > 10 ? 2 : 1);
+  const xTicks = [];
+  for (let y = yearMin; y <= yearMax; y += xStep) xTicks.push(y);
+  if (xTicks[xTicks.length - 1] !== yearMax) xTicks.push(yearMax);
+
+  // Build path. Color = pink to match accent.
+  const color = '#ff6eb4';
+  let pathD = '';
+  for (let i = 0; i < points.length; i++) {
+    const x = xScale(points[i].date).toFixed(1);
+    const y = yScale(points[i].combinedZ).toFixed(1);
+    pathD += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+  }
+
+  chartEl.innerHTML = `
+    <div class="city-chart-wrap">
+      <h3>${cityName} - combined z over time</h3>
+      <div class="chart-sub">Each dot is a snapshot moment (sport championship or Dec 31 year-end). Hover the dots in the rankings table below for detail.</div>
+      <svg class="city-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        <g class="grid">
+          ${yTicks.map(v => `<line x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(v).toFixed(1)}" y2="${yScale(v).toFixed(1)}"/>`).join('')}
+        </g>
+        <line class="zero-line" x1="${M.left}" x2="${M.left + innerW}" y1="${yScale(0).toFixed(1)}" y2="${yScale(0).toFixed(1)}"/>
+        <g class="axis">
+          <line x1="${M.left}" x2="${M.left + innerW}" y1="${M.top + innerH}" y2="${M.top + innerH}"/>
+          ${xTicks.map(y => {
+            const xx = M.left + ((new Date(y, 5, 30) - xMin) / (xMax - xMin || 1)) * innerW;
+            return `<text x="${xx.toFixed(1)}" y="${M.top + innerH + 16}" text-anchor="middle">${y}</text>`;
+          }).join('')}
+          ${yTicks.map(v => `<text x="${M.left - 6}" y="${(yScale(v) + 3.5).toFixed(1)}" text-anchor="end">${v >= 0 ? '+' + v.toFixed(1) : v.toFixed(1)}</text>`).join('')}
+        </g>
+        <path class="city-line" d="${pathD}" stroke="${color}" fill="none" stroke-width="2"/>
+        ${points.map(p => `<circle cx="${xScale(p.date).toFixed(1)}" cy="${yScale(p.combinedZ).toFixed(1)}" r="3" fill="${color}"><title>${p.label} - ${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</title></circle>`).join('')}
+      </svg>
+    </div>
+  `;
+
+  // Table of snapshots (newest first)
+  const rows = [...points].reverse().map((p, i) => {
+    const chips = p.teams.map(t => {
+      const tcls = t.zScore >= 0 ? 'positive' : 'negative';
+      const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
+      return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
+    }).join('');
+    const cls = p.combinedZ >= 0 ? 'positive' : 'negative';
+    return `<tr class="${cls}">
+      <td class="num">${p.date}</td>
+      <td class="city">${p.label}</td>
+      <td class="num score">${(p.combinedZ >= 0 ? '+' : '') + p.combinedZ.toFixed(2)}</td>
+      <td>${chips}</td>
+    </tr>`;
+  }).join('');
+  tableEl.innerHTML = `
+    <table class="city-index">
+      <thead><tr>
+        <th>Date</th>
+        <th>Snapshot</th>
+        <th class="num">Score</th>
+        <th>Teams</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Cross-Sport GOAT Years
+// For each (city, year) pair, find the peak combined-z across all snapshots
+// in that year. Sort all such pairs desc; render top 50.
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderGoatYears() {
+  const el = document.getElementById('goat-years-view');
+  el.innerHTML = '<p style="color:#888;font-size:12px">Loading&hellip;</p>';
+  const data = await ensureCityData();
+  if (data.error) {
+    el.innerHTML = `<p style="color:#a85959">Could not load: ${data.error}</p>`;
+    return;
+  }
+
+  // (city, year) -> { peakSnap, peakCombinedZ }
+  const peaks = new Map();
+  for (const s of data.snapshotMetros) {
+    for (const m of s.metros) {
+      const key = `${m.name}__${s.year}`;
+      const prev = peaks.get(key);
+      if (!prev || m.combinedZ > prev.combinedZ) {
+        peaks.set(key, {
+          city:      m.name,
+          year:      s.year,
+          combinedZ: m.combinedZ,
+          label:     s.label,
+          date:      s.date,
+          kind:      s.kind,
+          teams:     m.teams,
+          nTeams:    m.nTeams,
+        });
+      }
+    }
+  }
+
+  const top = [...peaks.values()]
+    .sort((a, b) => b.combinedZ - a.combinedZ)
+    .slice(0, 50);
+
+  const rows = top.map((p, i) => {
+    const chips = p.teams.map(t => {
+      const tcls = t.zScore >= 0 ? 'positive' : 'negative';
+      const z = (t.zScore >= 0 ? '+' : '') + t.zScore.toFixed(2);
+      return `<span class="team-chip ${tcls}"><span class="sport-tag">${t.sport}</span>${t.team}<span class="z">${z}</span></span>`;
+    }).join('');
+    const meta = p.nTeams === 1 ? ` <span class="city-meta">single team</span>` : '';
+    return `<tr class="positive">
+      <td class="num">${i + 1}</td>
+      <td class="city">${p.city}${meta}</td>
+      <td class="num">${p.year}</td>
+      <td class="num score">+${p.combinedZ.toFixed(2)}</td>
+      <td><span style="color:#888;font-size:11px">${p.label}</span></td>
+      <td>${chips}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <p class="snap-meta" style="margin-bottom:14px">Top 50 (city, year) peaks across the full snapshot history. For each (city, year) pair, the peak combined-z across all snapshot moments in that year is shown.</p>
+    <table class="city-index">
+      <thead><tr>
+        <th class="num">#</th>
+        <th>City</th>
+        <th class="num">Year</th>
+        <th class="num">Peak Score</th>
+        <th>Peak Moment</th>
+        <th>Teams</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (Legacy code below this point - kept temporarily to avoid breaking the
+// chart-color palette reference. The old multi-city chart has been replaced
+// by the City History sub-view above.)
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 // Auto-resize: when embedded in an iframe, post our current scroll height
 // to the parent so the iframe can size itself with no internal scroll.
