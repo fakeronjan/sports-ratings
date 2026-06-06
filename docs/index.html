@@ -2573,12 +2573,15 @@ async function renderCityDroughts() {
     } else {
       lastCell = `<td style="color:#888">Never (since ${r.droughtStart})</td>`;
     }
-    // Both current + departed chips show the team's tenure year range
-    // ('60-'25 style). Current teams keep their 👑 / 🥈 if the current
-    // snapshot has them as champion / runner-up; departed are faded.
+    // Both current + departed chips show the team's drought-aligned year
+    // range ('60-'25) and the count of years inside the drought as the
+    // chip's number badge. Current teams keep their 👑 / 🥈; departed
+    // are faded. Combined list is sorted by years-in-drought desc so
+    // the highest-contributing teams float to the left.
     const renderDroughtChip = (t, isDeparted) => {
       const shortName = TEAM_SHORT_NAME[t.team] || t.team;
       const range = `'${String(t.firstYear).slice(-2)}-'${String(t.lastYear).slice(-2)}`;
+      const years = t.lastYear - t.firstYear;
       const classes = ['team-chip'];
       let extra = '';
       if (isDeparted) {
@@ -2588,15 +2591,19 @@ async function renderCityDroughts() {
       } else if (t.finalsStatus === 1) {
         classes.push('runner'); extra = ' 🥈';
       }
-      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}</span>`;
+      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}<span class="z">${years}</span></span>`;
     };
-    const currentChips = r.teams.map(t => renderDroughtChip(t, false)).join('');
-    const departedChips = r.departedTeams.map(d => renderDroughtChip(d, true)).join('');
+    const allChips = [
+      ...r.teams.map(t => ({ ...t, _isDeparted: false })),
+      ...r.departedTeams.map(d => ({ ...d, _isDeparted: true })),
+    ];
+    allChips.sort((a, b) => (b.lastYear - b.firstYear) - (a.lastYear - a.firstYear));
+    const chipsHtml = allChips.map(t => renderDroughtChip(t, t._isDeparted)).join('');
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
       ${lastCell}
-      <td>${currentChips}${departedChips}</td>
+      <td>${chipsHtml}</td>
       <td class="num total-drought-cell">${r.drought}</td>
       <td class="num team-years-cell">${r.teamYears}</td>
     </tr>`;
