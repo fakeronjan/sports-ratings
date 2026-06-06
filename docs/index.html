@@ -2508,11 +2508,27 @@ async function renderCityDroughts() {
     // Sort departed teams by most-recently-departed first.
     departedTeams.sort((a, b) => b.lastYear - a.lastYear);
 
+    // Annotate each current team with its tenure-in-market range, so the
+    // chip can show '60-'25 (the years the team has been here) instead
+    // of a rating value - rating is irrelevant on the Droughts tab and
+    // year range is the metric-aligned thing to show.
+    const annotatedCurrentTeams = currentTeams.map(t => {
+      const ten = cityTenures[t.sport] && cityTenures[t.sport][t.team];
+      let firstYear = ten ? ten.first : null;
+      if (TEAM_MARKET_ENTRY[t.team] != null
+          && firstYear != null
+          && TEAM_MARKET_ENTRY[t.team] < firstYear) {
+        firstYear = TEAM_MARKET_ENTRY[t.team];
+      }
+      const lastYear = ten ? ten.last : null;
+      return { ...t, firstYear, lastYear };
+    });
+
     records.push({
       city, drought, teamYears, everWon, droughtStart,
       bestTitleTeam, bestTitleSport,
       sportsCount: currentSportsSet.size,
-      teams: currentTeams,
+      teams: annotatedCurrentTeams,
       departedTeams,
     });
   }
@@ -2535,12 +2551,25 @@ async function renderCityDroughts() {
     } else {
       lastCell = `<td style="color:#888">Never (since ${r.droughtStart})</td>`;
     }
-    const currentChips = r.teams.map(teamChipHtml).join('');
-    const departedChips = r.departedTeams.map(d => {
-      const shortName = TEAM_SHORT_NAME[d.team] || d.team;
-      const range = `'${String(d.firstYear).slice(-2)}-'${String(d.lastYear).slice(-2)}`;
-      return `<span class="team-chip departed"><span class="sport-tag">${d.sport}</span><span class="yr">${range}</span> ${shortName}</span>`;
-    }).join('');
+    // Both current + departed chips show the team's tenure year range
+    // ('60-'25 style). Current teams keep their 👑 / 🥈 if the current
+    // snapshot has them as champion / runner-up; departed are faded.
+    const renderDroughtChip = (t, isDeparted) => {
+      const shortName = TEAM_SHORT_NAME[t.team] || t.team;
+      const range = `'${String(t.firstYear).slice(-2)}-'${String(t.lastYear).slice(-2)}`;
+      const classes = ['team-chip'];
+      let extra = '';
+      if (isDeparted) {
+        classes.push('departed');
+      } else if (t.finalsStatus === 2) {
+        classes.push('win'); extra = ' 👑';
+      } else if (t.finalsStatus === 1) {
+        classes.push('runner'); extra = ' 🥈';
+      }
+      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}</span>`;
+    };
+    const currentChips = r.teams.map(t => renderDroughtChip(t, false)).join('');
+    const departedChips = r.departedTeams.map(d => renderDroughtChip(d, true)).join('');
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
