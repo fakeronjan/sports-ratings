@@ -44,9 +44,16 @@ FROM_YEAR = 1980
 TO_YEAR   = 2026  # include current in-progress year
 
 
-def collect_snapshots(sport_path):
-    """All snapshots across all seasons for a sport, with date parsed.
-    Returns sorted list of (date, snap_dict)."""
+def collect_season_end_snapshots(sport_path):
+    """For each COMPLETED season file, return (end_date, end_snapshot) where
+    end_snapshot is the final snapshot of that season (the championship
+    moment). Skips in-progress seasons (no 'End of playoffs' marker).
+
+    This is what we want for cross-sport rating windows: at any key date we
+    use each sport's LAST COMPLETED season-end rating, NOT a mid-season
+    snapshot. Mid-season ratings are still fluctuating from in-progress
+    games and would pollute the 'cross-sport snapshot at the championship
+    moment' semantics."""
     out = []
     seasons_dir = os.path.join(sport_path, 'docs', 'data', 'seasons')
     if not os.path.isdir(seasons_dir):
@@ -59,15 +66,20 @@ def collect_snapshots(sport_path):
                 d = json.load(f)
         except Exception:
             continue
-        for snap in d.get('snapshots', []):
-            ds = snap.get('date')
-            if not ds:
-                continue
-            try:
-                d_obj = date.fromisoformat(ds[:10])
-            except Exception:
-                continue
-            out.append((d_obj, snap))
+        snaps = d.get('snapshots', [])
+        if not snaps:
+            continue
+        last = snaps[-1]
+        if 'End of playoffs' not in (last.get('label') or ''):
+            continue  # in-progress season
+        ds = last.get('date')
+        if not ds:
+            continue
+        try:
+            d_obj = date.fromisoformat(ds[:10])
+        except Exception:
+            continue
+        out.append((d_obj, last))
     out.sort(key=lambda x: x[0])
     return out
 
@@ -83,57 +95,17 @@ def snapshot_at(snaps, target):
     return found
 
 
-def collect_sport_finale_dates(sport_path):
-    """For each COMPLETED season file, the date of its last snapshot - that's
-    the championship / cup-winning game.
-
-    Critical: only include seasons that have actually finished. Each fleet
-    site labels the last snapshot of a completed season with 'End of
-    playoffs' (or 'Super Bowl - End of playoffs' on DILLON). In-progress
-    seasons just have a label of None or the current week, so checking
-    the last snapshot's label is the reliable completion signal.
-    Without this gate the build script emits fake championship dates
-    like '2026 NBA Finals' on whatever today's date is, which corrupts
-    the City History chart + GOAT table.
-    """
-    finales = []
-    seasons_dir = os.path.join(sport_path, 'docs', 'data', 'seasons')
-    if not os.path.isdir(seasons_dir):
-        return []
-    for fname in os.listdir(seasons_dir):
-        if not fname.endswith('.json'):
-            continue
-        try:
-            with open(os.path.join(seasons_dir, fname)) as f:
-                d = json.load(f)
-        except Exception:
-            continue
-        snaps = d.get('snapshots', [])
-        if not snaps:
-            continue
-        last = snaps[-1]
-        last_label = last.get('label') or ''
-        if 'End of playoffs' not in last_label:
-            continue  # in-progress season
-        ds = last.get('date')
-        if not ds:
-            continue
-        try:
-            d_obj = date.fromisoformat(ds[:10])
-        except Exception:
-            continue
-        finales.append(d_obj)
-    return sorted(set(finales))
-
-
-print("Loading all snapshots per sport...")
-all_snaps = {}
-finale_dates_by_sport = {}
+print("Loading season-end snapshots per sport...")
+season_end_snaps = {}  # sport -> [(end_date, end_snapshot), ...] sorted by date
 for sport, repo in REPOS.items():
-    all_snaps[sport] = collect_snapshots(repo)
-    finale_dates_by_sport[sport] = collect_sport_finale_dates(repo)
-    print(f"  {sport}: {len(all_snaps[sport])} snapshots, "
-          f"{len(finale_dates_by_sport[sport])} season ends")
+    season_end_snaps[sport] = collect_season_end_snapshots(repo)
+    print(f"  {sport}: {len(season_end_snaps[sport])} completed seasons")
+
+# Derived: the per-sport finale-date list (used for building key_dates).
+finale_dates_by_sport = {
+    sport: [d for d, _ in snaps]
+    for sport, snaps in season_end_snaps.items()
+}
 
 # Rolling view captured AT THE END OF EACH SPORT'S SEASON.
 # Year-End snapshots dropped per user direction 2026-06-06: each sport's
@@ -200,8 +172,13 @@ for kd, label, year, kind in key_dates:
         'snapshots_used':  {},
         'teams':           [],
     }
+    # Each sport contributes its LAST COMPLETED SEASON-END snapshot as of
+    # the key date - NOT a mid-season snapshot. This keeps the cross-sport
+    # view clean of in-season progress: at the 2026 NFL Super Bowl moment,
+    # NBA shows the 2024-25 season-end (last completed) rather than a
+    # mid-2025-26 snapshot. User direction 2026-06-06.
     sport_payloads = []
-    for sport, snaps in all_snaps.items():
+    for sport, snaps in season_end_snaps.items():
         found = snapshot_at(snaps, kd)
         if not found:
             continue
