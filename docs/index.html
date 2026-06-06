@@ -1567,6 +1567,19 @@ function teamChipHtml(t) {
 // Fleet-style numeric formatter: no + signs on positives.
 function fmtScore(v)  { return v == null ? '-' : v.toFixed(2); }
 
+// Does this metro field a team in the sport(s) this snapshot represents?
+// Used to filter the City History + GOAT views so a city only appears at
+// rating windows in leagues where it actually has a franchise. Cross-Sport
+// Rankings stays unfiltered (it's the full leaderboard at the moment).
+//   - snapshot kind 'NBA' / 'NFL' / 'MLB' / 'WNBA' / 'NHL' / 'MLS' -> single sport
+//   - snapshot kind 'nba+nhl' -> NBA OR NHL counts as participating
+function metroParticipatesIn(metro, snapKind) {
+  const targets = snapKind === 'nba+nhl'
+    ? new Set(['NBA', 'NHL'])
+    : new Set([snapKind]);
+  return metro.teams.some(t => targets.has(t.sport));
+}
+
 // Rankings table used by Cross-Sport Rankings. Each city name is clickable
 // (deep-links to City History).
 function buildRankingsTable(metros) {
@@ -1733,12 +1746,15 @@ function renderSingleCityChart(cityName, data) {
   const tableEl = document.getElementById('ch-table');
 
   // Rolling view: each point is one sport's end-of-season moment for this
-  // city. No live "current" appended since the Current Summary tab covers
-  // live ratings via the sport cards.
+  // city, FILTERED to rating windows in leagues where the city actually
+  // has a franchise. Cincinnati (NFL + MLB + MLS) only shows rows for
+  // NFL Super Bowl / MLB World Series / MLS Cup snapshots - not NBA / NHL
+  // / WNBA windows where they have no team to even contribute.
   const points = [];  // {date, label, year, combinedZ, peakZ, teams, hasChamp, hasRu}
   for (const s of data.snapshotMetros) {
     const m = s.metros.find(x => x.name === cityName);
     if (!m) continue;
+    if (!metroParticipatesIn(m, s.kind)) continue;
     const hasChamp = m.teams.some(t => t.finalsStatus === 2);
     const hasRu    = m.teams.some(t => t.finalsStatus === 1);
     points.push({
@@ -1873,11 +1889,16 @@ async function renderGoatYears() {
   }
 
   // For each (city, year), keep the rating window where the city's Peak
-  // was highest. Sort by Peak desc, take top 50.
+  // was highest. Filter to windows in leagues the city actually fields,
+  // so single-sport metros like Green Bay only show up at NFL Super Bowl
+  // entries (not at NBA + NHL Finals where the Packers' SB signal carries
+  // forward but Green Bay has no NBA / NHL franchise of its own to be
+  // "competing" at that moment). Sort by Peak desc, take top 50.
   const peaks = new Map();
   for (const s of data.snapshotMetros) {
     for (const m of s.metros) {
       if (m.peakZ == null) continue;
+      if (!metroParticipatesIn(m, s.kind)) continue;
       const key = `${m.name}__${s.year}`;
       const prev = peaks.get(key);
       if (!prev || m.peakZ > prev.peakZ) {
