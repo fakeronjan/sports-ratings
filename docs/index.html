@@ -2659,7 +2659,7 @@ async function renderCityDroughts() {
     });
   }
 
-  records.sort((a, b) => b.drought - a.drought);
+  records.sort((a, b) => (b.drought - a.drought) || (b.teamYears - a.teamYears));
 
   const rows = records.map((r, i) => {
     const sportsTag = r.sportsCount === 1
