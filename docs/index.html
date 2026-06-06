@@ -222,6 +222,9 @@
   .team-chip.win  .z { color: #1a6b8a; font-weight: 700; }
   .team-chip.runner { background: #f0f0f0; }
   .team-chip.runner .sport-tag { background: #888; }
+  /* Bench teams: shown for completeness but don't count toward Score / Peak. */
+  .team-chip.bench { opacity: 0.55; }
+  .team-chip.bench .sport-tag { background: #aaa; }
 
   /* Champion / runner-up trophy chips */
   .trophy-chip {
@@ -1433,10 +1436,12 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  // Best team per (metro, sport). finalsStatus carried through from
-  // build script (history) or current_standings (live) so the City History
-  // view can show 👑 / 🥈 markers at championship moments.
-  const bestByCitySport = {};  // "metro__sport" -> {metro, sport, team, rating, zScore, finalsStatus}
+  // Collect ALL teams per metro. We display the full roster on the team
+  // chips (NYC users want to see Knicks AND Nets, not just whichever is
+  // higher rated this snapshot), but the Score / Peak math still uses only
+  // the BEST team per (city, sport) pair so multi-team-per-sport metros
+  // don't artificially inflate their Stouffer n.
+  const metros = {};
   for (const s of sportPayloads) {
     for (const t of s.teams) {
       if (t.zScore == null) continue;
@@ -1445,47 +1450,47 @@ function aggregateMetros(sportPayloads) {
       if (!metro) continue;
       const fs = t.finalsStatus != null ? t.finalsStatus
               : (t.finals_status != null ? t.finals_status : 0);
-      const key = `${metro}__${s.label}`;
-      if (!bestByCitySport[key] || t.zScore > bestByCitySport[key].zScore) {
-        bestByCitySport[key] = {
-          metro, sport: s.label, team: teamName,
-          rating: t.rating, zScore: t.zScore,
-          finalsStatus: fs,
-        };
-      }
+      if (!metros[metro]) metros[metro] = { name: metro, teams: [] };
+      metros[metro].teams.push({
+        sport:        s.label,
+        team:         teamName,
+        rating:       t.rating,
+        zScore:       t.zScore,
+        finalsStatus: fs,
+      });
     }
   }
 
-  // Aggregate by metro.
-  const metros = {};
-  for (const e of Object.values(bestByCitySport)) {
-    if (!metros[e.metro]) metros[e.metro] = { name: e.metro, teams: [] };
-    metros[e.metro].teams.push({
-      sport:        e.sport,
-      team:         e.team,
-      rating:       e.rating,
-      zScore:       e.zScore,
-      finalsStatus: e.finalsStatus,
-    });
+  // Mark the best team per (metro, sport) - those are the ones that
+  // contribute to Score / Peak. The others are display-only.
+  for (const m of Object.values(metros)) {
+    const bestPerSport = {};
+    for (const t of m.teams) {
+      if (!bestPerSport[t.sport] || t.zScore > bestPerSport[t.sport].zScore) {
+        bestPerSport[t.sport] = t;
+      }
+    }
+    for (const t of m.teams) {
+      t.isContributor = (t === bestPerSport[t.sport]);
+    }
   }
 
   return Object.values(metros).map(m => {
-    const n = m.teams.length;
-    const sumZ = m.teams.reduce((a, t) => a + t.zScore, 0);
+    const contributors = m.teams.filter(t => t.isContributor);
+    const n = contributors.length;
+    const sumZ = contributors.reduce((a, t) => a + t.zScore, 0);
     m.combinedZ = sumZ / Math.sqrt(n);
     m.nTeams = n;
     // Peak: sum of positive z-scores divided by sqrt(n_sports_represented),
     // NOT sqrt(n_positive). User direction 2026-06-07: dividing by positives
     // only created an artifact where removing a marginally-positive
     // contribution INCREASED Peak (because sqrt(n_positive) shrinks faster
-    // than the sum). NY 1987 peak landed at the NBA + NHL Finals window
-    // simply because Islanders fell below zero between Jan and June 1987,
-    // not because anything in June was genuinely "more peak". Dividing by
-    // the full sport count keeps the negative teams in the denominator
-    // (they're zeroed out of the numerator, but they still 'existed').
-    const sumPos = m.teams.reduce((a, t) => a + Math.max(0, t.zScore), 0);
+    // than the sum). Dividing by the full sport count keeps the negative
+    // teams in the denominator (they're zeroed out of the numerator, but
+    // they still 'existed').
+    const sumPos = contributors.reduce((a, t) => a + Math.max(0, t.zScore), 0);
     m.peakZ = sumPos / Math.sqrt(n);
-    m.nPositive = m.teams.filter(t => t.zScore > 0).length;
+    m.nPositive = contributors.filter(t => t.zScore > 0).length;
     m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
   });
@@ -1557,15 +1562,19 @@ const CHART_COLORS = [
 // Shared table + helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Render a team-chip honoring championship state (gold for champion, gray for
-// runner-up). Used in both the rankings tables and the GOAT table.
+// Render a team-chip honoring championship state (gold for champion, gray
+// for runner-up) and contributor state. Non-contributing teams (the
+// second-best in a sport for cities that field multiple teams in that
+// sport - e.g. Mets when Yankees rate higher) get a softer chip style
+// since they're shown for context but don't affect Score / Peak math.
 function teamChipHtml(t) {
+  const classes = ['team-chip'];
   let extra = '';
-  let cls = '';
-  if (t.finalsStatus === 2) { cls = 'win';    extra = ' 👑'; }
-  else if (t.finalsStatus === 1) { cls = 'runner'; extra = ' 🥈'; }
+  if (t.finalsStatus === 2)      { classes.push('win');    extra = ' 👑'; }
+  else if (t.finalsStatus === 1) { classes.push('runner'); extra = ' 🥈'; }
+  if (t.isContributor === false) classes.push('bench');
   const z = t.zScore.toFixed(2);
-  return `<span class="team-chip ${cls}"><span class="sport-tag">${t.sport}</span>${t.team}${extra}<span class="z">${z}</span></span>`;
+  return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span>${t.team}${extra}<span class="z">${z}</span></span>`;
 }
 
 // Fleet-style numeric formatter: no + signs on positives.
