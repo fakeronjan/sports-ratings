@@ -592,7 +592,7 @@
 <main id="main">
   <div id="current-summary-view" class="view active"></div>
   <div id="cross-sport-rankings-view" class="view tab">
-    <p class="data-note">City rankings at any championship moment · Cities with multiple teams in the same sport count just their best · History covers 1980-present (WNBA / MLS contribute from 1997 / 1996 on).</p>
+    <p class="data-note">City rankings at any championship moment · Vibe weights each team's z-score by championship success (champions 100%, runners-up 90%, everyone else 75%) · History covers 1980-present (WNBA / MLS contribute from 1997 / 1996 on).</p>
     <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-history-view" class="view tab">
@@ -600,7 +600,7 @@
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="goat-table-view" class="view tab">
-    <p class="data-note">Top 50 city-year vibes across 1980-present · Vibe captures the strongest cluster of above-average teams a city was fielding at one rating window · LA 2002 (Lakers + Angels + Galaxy), Boston 2008 (Celtics + Pats 18-1 + Sox), and Tampa Bay 2021 (Bucs + Lightning + Rays) lead.</p>
+    <p class="data-note">Top 50 city-year vibes across 1980-present · Vibe weights each team's z-score by championship success (champions 100%, runners-up 90%, everyone else 75%) so deep playoff runs matter more than regular-season padding · LA 2002 (Lakers + Angels + Galaxy), Boston 2008 (Celtics + Pats 18-1 + Sox), and Tampa Bay 2021 (Bucs + Lightning + Rays) lead.</p>
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -1611,11 +1611,20 @@ function aggregateMetros(sportPayloads) {
       const fs = t.finalsStatus != null ? t.finalsStatus
               : (t.finals_status != null ? t.finals_status : 0);
       if (!metros[metro]) metros[metro] = { name: metro, teams: [] };
+      // Championship weight: champions get full credit, runners-up 90%,
+      // everyone else 75%. Vibe is about how much the city's teams
+      // ACTUALLY converted their season, not just how strong they were on
+      // paper, so a great-regular-season-but-first-round-out team
+      // (2001 A's, +2.49 raw z) reads more honestly at +1.87. User
+      // direction 2026-06-07 after the 2001 Bay Area entry surfaced too
+      // high on A's regular-season strength alone.
+      const champWeight = fs === 2 ? 1.0 : fs === 1 ? 0.9 : 0.75;
       metros[metro].teams.push({
         sport:        s.label,
         team:         teamName,
         rating:       t.rating,
-        zScore:       t.zScore,
+        zScore:       t.zScore,             // raw z, preserved for diagnostics
+        effectiveZ:   t.zScore * champWeight,  // what feeds Vibe + chip display
         finalsStatus: fs,
         seasonYear:   t.seasonYear,
       });
@@ -1643,14 +1652,15 @@ function aggregateMetros(sportPayloads) {
     //     best-per-sport filter that was needed to keep sqrt(n) honest.)
     //   - needs no arbitrary threshold
     // Always >= 0 (a city with no positive teams gets Vibe = 0).
+    // Uses effectiveZ (championship-weighted), not raw zScore.
     const positiveTeams = m.teams
-      .filter(t => t.zScore > 0)
-      .sort((a, b) => b.zScore - a.zScore);
+      .filter(t => t.effectiveZ > 0)
+      .sort((a, b) => b.effectiveZ - a.effectiveZ);
     let bestVibe = 0;
     let bestK = 0;
     let runningSum = 0;
     for (let k = 1; k <= positiveTeams.length; k++) {
-      runningSum += positiveTeams[k - 1].zScore;
+      runningSum += positiveTeams[k - 1].effectiveZ;
       const candidate = runningSum / Math.sqrt(k);
       if (candidate > bestVibe) {
         bestVibe = candidate;
@@ -1665,7 +1675,7 @@ function aggregateMetros(sportPayloads) {
     // completed yet).
     m.vibeContributors = positiveTeams.slice(0, bestK);
     m.nPositive = positiveTeams.length;
-    m.teams.sort((a, b) => b.zScore - a.zScore);
+    m.teams.sort((a, b) => b.effectiveZ - a.effectiveZ);
     return m;
   });
 }
@@ -1796,7 +1806,9 @@ function teamChipHtml(t) {
   let extra = '';
   if (t.finalsStatus === 2)      { classes.push('win');    extra = ' 👑'; }
   else if (t.finalsStatus === 1) { classes.push('runner'); extra = ' 🥈'; }
-  const z = t.zScore.toFixed(2);
+  // Show the championship-weighted z (what actually fed Vibe), not raw.
+  // The 👑 / 🥈 / no-marker badges signal the weight tier (100% / 90% / 75%).
+  const z = t.effectiveZ.toFixed(2);
   const shortName = TEAM_SHORT_NAME[t.team] || t.team;
   const yr = t.seasonYear != null
     ? `<span class="yr">${("'" + String(t.seasonYear).slice(-2))}</span> `
