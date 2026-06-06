@@ -212,6 +212,12 @@
     margin-right: 4px;
     vertical-align: 1px;
   }
+  .team-chip .yr {
+    color: #888;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    margin-right: 1px;
+  }
   .team-chip .z {
     color: #888;
     font-variant-numeric: tabular-nums;
@@ -1398,6 +1404,133 @@ const TEAM_TO_METRO = {
   'Utah Starzz': 'Salt Lake City',
 };
 
+// Short team names for chip display. Since the city is already established
+// by the row, chips show just the nickname: "Los Angeles Rams" -> "Rams",
+// "New England Patriots" -> "Patriots", "Inter Miami CF" -> "Inter Miami".
+const TEAM_SHORT_NAME = {
+  // NBA
+  'Atlanta Hawks': 'Hawks', 'Boston Celtics': 'Celtics', 'Brooklyn Nets': 'Nets',
+  'Charlotte Hornets': 'Hornets', 'Chicago Bulls': 'Bulls', 'Cleveland Cavaliers': 'Cavaliers',
+  'Dallas Mavericks': 'Mavericks', 'Denver Nuggets': 'Nuggets', 'Detroit Pistons': 'Pistons',
+  'Golden State Warriors': 'Warriors', 'Houston Rockets': 'Rockets', 'Indiana Pacers': 'Pacers',
+  'Los Angeles Clippers': 'Clippers', 'Los Angeles Lakers': 'Lakers',
+  'Memphis Grizzlies': 'Grizzlies', 'Miami Heat': 'Heat', 'Milwaukee Bucks': 'Bucks',
+  'Minnesota Timberwolves': 'Timberwolves', 'New Orleans Pelicans': 'Pelicans',
+  'New York Knicks': 'Knicks', 'Oklahoma City Thunder': 'Thunder', 'Orlando Magic': 'Magic',
+  'Philadelphia 76ers': '76ers', 'Phoenix Suns': 'Suns',
+  'Portland Trail Blazers': 'Trail Blazers', 'Sacramento Kings': 'Kings',
+  'San Antonio Spurs': 'Spurs', 'Toronto Raptors': 'Raptors',
+  'Utah Jazz': 'Jazz', 'Washington Wizards': 'Wizards',
+  'Charlotte Bobcats': 'Bobcats', 'NO/OKC Hornets': 'Hornets',
+  'New Jersey Nets': 'Nets', 'New Orleans Hornets': 'Hornets',
+  'Seattle SuperSonics': 'SuperSonics', 'Vancouver Grizzlies': 'Grizzlies',
+  // WNBA
+  'Atlanta Dream': 'Dream', 'Chicago Sky': 'Sky', 'Connecticut Sun': 'Sun',
+  'Dallas Wings': 'Wings', 'Golden State Valkyries': 'Valkyries',
+  'Indiana Fever': 'Fever', 'Las Vegas Aces': 'Aces',
+  'Los Angeles Sparks': 'Sparks', 'Minnesota Lynx': 'Lynx',
+  'New York Liberty': 'Liberty', 'Phoenix Mercury': 'Mercury',
+  'Portland Fire': 'Fire', 'Seattle Storm': 'Storm',
+  'Toronto Tempo': 'Tempo', 'Washington Mystics': 'Mystics',
+  'Charlotte Sting': 'Sting', 'Cleveland Rockers': 'Rockers',
+  'Detroit Shock': 'Shock', 'Houston Comets': 'Comets', 'Miami Sol': 'Sol',
+  'Orlando Miracle': 'Miracle', 'Sacramento Monarchs': 'Monarchs',
+  'San Antonio Silver Stars': 'Silver Stars', 'Tulsa Shock': 'Shock',
+  'Utah Starzz': 'Starzz',
+  // NFL
+  'Arizona Cardinals': 'Cardinals', 'Atlanta Falcons': 'Falcons',
+  'Baltimore Ravens': 'Ravens', 'Buffalo Bills': 'Bills',
+  'Carolina Panthers': 'Panthers', 'Chicago Bears': 'Bears',
+  'Cincinnati Bengals': 'Bengals', 'Cleveland Browns': 'Browns',
+  'Dallas Cowboys': 'Cowboys', 'Denver Broncos': 'Broncos',
+  'Detroit Lions': 'Lions', 'Green Bay Packers': 'Packers',
+  'Houston Texans': 'Texans', 'Indianapolis Colts': 'Colts',
+  'Jacksonville Jaguars': 'Jaguars', 'Kansas City Chiefs': 'Chiefs',
+  'Las Vegas Raiders': 'Raiders', 'Los Angeles Chargers': 'Chargers',
+  'Los Angeles Rams': 'Rams', 'Miami Dolphins': 'Dolphins',
+  'Minnesota Vikings': 'Vikings', 'New England Patriots': 'Patriots',
+  'New Orleans Saints': 'Saints', 'New York Giants': 'Giants',
+  'New York Jets': 'Jets', 'Philadelphia Eagles': 'Eagles',
+  'Pittsburgh Steelers': 'Steelers', 'San Francisco 49ers': '49ers',
+  'Seattle Seahawks': 'Seahawks', 'Tampa Bay Buccaneers': 'Buccaneers',
+  'Tennessee Titans': 'Titans', 'Washington Commanders': 'Commanders',
+  'Oakland Raiders': 'Raiders', 'San Diego Chargers': 'Chargers',
+  'St. Louis Rams': 'Rams', 'Tennessee Oilers': 'Oilers',
+  'Washington Football Team': 'Football Team', 'Washington Redskins': 'Redskins',
+  // MLB
+  'Arizona Diamondbacks': 'Diamondbacks', 'Atlanta Braves': 'Braves',
+  'Baltimore Orioles': 'Orioles', 'Boston Red Sox': 'Red Sox',
+  'Chicago Cubs': 'Cubs', 'Chicago White Sox': 'White Sox',
+  'Cincinnati Reds': 'Reds', 'Cleveland Guardians': 'Guardians',
+  'Colorado Rockies': 'Rockies', 'Detroit Tigers': 'Tigers',
+  'Houston Astros': 'Astros', 'Kansas City Royals': 'Royals',
+  'Las Vegas Athletics': 'Athletics', 'Athletics': 'Athletics',
+  'Los Angeles Angels': 'Angels', 'Los Angeles Dodgers': 'Dodgers',
+  'Miami Marlins': 'Marlins', 'Milwaukee Brewers': 'Brewers',
+  'Minnesota Twins': 'Twins', 'New York Mets': 'Mets',
+  'New York Yankees': 'Yankees', 'Oakland Athletics': 'Athletics',
+  'Philadelphia Phillies': 'Phillies', 'Pittsburgh Pirates': 'Pirates',
+  'San Diego Padres': 'Padres', 'San Francisco Giants': 'Giants',
+  'Seattle Mariners': 'Mariners', 'St. Louis Cardinals': 'Cardinals',
+  'Tampa Bay Rays': 'Rays', 'Texas Rangers': 'Rangers',
+  'Toronto Blue Jays': 'Blue Jays', 'Washington Nationals': 'Nationals',
+  'Cleveland Indians': 'Indians', 'Florida Marlins': 'Marlins',
+  'Montreal Expos': 'Expos', 'Tampa Bay Devil Rays': 'Devil Rays',
+  // NHL
+  'Anaheim Ducks': 'Ducks', 'Boston Bruins': 'Bruins',
+  'Buffalo Sabres': 'Sabres', 'Calgary Flames': 'Flames',
+  'Carolina Hurricanes': 'Hurricanes', 'Chicago Blackhawks': 'Blackhawks',
+  'Colorado Avalanche': 'Avalanche', 'Columbus Blue Jackets': 'Blue Jackets',
+  'Dallas Stars': 'Stars', 'Detroit Red Wings': 'Red Wings',
+  'Edmonton Oilers': 'Oilers', 'Florida Panthers': 'Panthers',
+  'Los Angeles Kings': 'Kings', 'Minnesota Wild': 'Wild',
+  'Montreal Canadiens': 'Canadiens', 'Nashville Predators': 'Predators',
+  'New Jersey Devils': 'Devils', 'New York Islanders': 'Islanders',
+  'New York Rangers': 'Rangers', 'Ottawa Senators': 'Senators',
+  'Philadelphia Flyers': 'Flyers', 'Pittsburgh Penguins': 'Penguins',
+  'San Jose Sharks': 'Sharks', 'Seattle Kraken': 'Kraken',
+  'St. Louis Blues': 'Blues', 'Tampa Bay Lightning': 'Lightning',
+  'Toronto Maple Leafs': 'Maple Leafs', 'Utah Mammoth': 'Mammoth',
+  'Utah Hockey Club': 'Hockey Club', 'Vancouver Canucks': 'Canucks',
+  'Vegas Golden Knights': 'Golden Knights', 'Washington Capitals': 'Capitals',
+  'Winnipeg Jets': 'Jets',
+  'Arizona Coyotes': 'Coyotes', 'Atlanta Thrashers': 'Thrashers',
+  'Mighty Ducks of Anaheim': 'Mighty Ducks', 'Phoenix Coyotes': 'Coyotes',
+  // MLS - some retain the FC / CF / United / City suffix as part of their brand
+  'Atlanta United FC': 'United', 'Austin FC': 'Austin FC',
+  'CF Montréal': 'CF Montréal', 'Charlotte FC': 'Charlotte FC',
+  'Chicago Fire FC': 'Fire', 'Colorado Rapids': 'Rapids',
+  'Columbus Crew': 'Crew', 'D.C. United': 'D.C. United',
+  'FC Cincinnati': 'FC Cincinnati', 'FC Dallas': 'FC Dallas',
+  'Houston Dynamo FC': 'Dynamo', 'Inter Miami CF': 'Inter Miami',
+  'LA Galaxy': 'Galaxy', 'LAFC': 'LAFC',
+  'Minnesota United FC': 'United', 'Nashville SC': 'Nashville SC',
+  'New England Revolution': 'Revolution', 'New York City FC': 'NYCFC',
+  'New York Red Bulls': 'Red Bulls', 'Red Bull New York': 'Red Bulls',
+  'Orlando City SC': 'Orlando City', 'Philadelphia Union': 'Union',
+  'Portland Timbers': 'Timbers', 'Real Salt Lake': 'Real Salt Lake',
+  'San Diego FC': 'San Diego FC', 'San Jose Earthquakes': 'Earthquakes',
+  'Seattle Sounders FC': 'Sounders', 'Sporting Kansas City': 'Sporting KC',
+  'St. Louis CITY SC': 'St. Louis CITY', 'Toronto FC': 'Toronto FC',
+  'Vancouver Whitecaps FC': 'Whitecaps', 'Vancouver Whitecaps': 'Whitecaps',
+  'Chicago Fire': 'Fire', 'Chivas USA': 'Chivas USA',
+  'Columbus Crew SC': 'Crew', 'Dallas Burn': 'Burn',
+  'Houston Dynamo': 'Dynamo', 'Kansas City Wizards': 'Wizards',
+  'MetroStars': 'MetroStars', 'Miami Fusion': 'Fusion',
+  'Montreal Impact': 'Impact', 'NY/NJ MetroStars': 'MetroStars',
+  'San Jose Clash': 'Clash', 'Tampa Bay Mutiny': 'Mutiny',
+};
+
+// Convert a snapshots_used date string to the SEASON year. All sports
+// except NFL use calendar year of the finale date as the season label.
+// NFL season N's Super Bowl plays in calendar year N+1, so we offset.
+function seasonYearFor(sport, dateStr) {
+  if (!dateStr) return null;
+  const yr = parseInt(dateStr.slice(0, 4), 10);
+  if (isNaN(yr)) return null;
+  return sport === 'NFL' ? yr - 1 : yr;
+}
+
 const CITY_SPORTS = [
   { repo: 'duncan',  label: 'NBA' },
   { repo: 'lobo',    label: 'WNBA' },
@@ -1457,6 +1590,7 @@ function aggregateMetros(sportPayloads) {
         rating:       t.rating,
         zScore:       t.zScore,
         finalsStatus: fs,
+        seasonYear:   t.seasonYear,
       });
     }
   }
@@ -1516,16 +1650,17 @@ async function ensureCityData() {
 
     // Historical snapshots: for each pre-computed snapshot, group teams by
     // sport then aggregate by metro via the same TEAM_TO_METRO mapping.
-    // finalsStatus is carried through grouping so champion / runner-up
-    // markers can render in the City History chart + tables.
+    // finalsStatus + seasonYear carry through grouping so champion markers
+    // render in the chart and team chips can show the 2-digit season year.
     const snapshotMetros = (history.snapshots || []).map(snap => {
       const grouped = {};
       for (const t of snap.teams) {
         if (!grouped[t.sport]) grouped[t.sport] = { label: t.sport, teams: [] };
         grouped[t.sport].teams.push({
-          rating: t.rating,
-          team:   t.team,
+          rating:       t.rating,
+          team:         t.team,
           finalsStatus: t.finalsStatus,
+          seasonYear:   seasonYearFor(t.sport, snap.snapshots_used[t.sport]),
         });
       }
       const metros = aggregateMetros(Object.values(grouped));
@@ -1562,11 +1697,10 @@ const CHART_COLORS = [
 // Shared table + helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Render a team-chip honoring championship state (gold for champion, gray
-// for runner-up) and contributor state. Non-contributing teams (the
-// second-best in a sport for cities that field multiple teams in that
-// sport - e.g. Mets when Yankees rate higher) get a softer chip style
-// since they're shown for context but don't affect Score / Peak math.
+// Render a team-chip. Since the city is established by the row, the team
+// is shown by nickname + 2-digit season year (e.g. "25 Knicks", "24
+// Giants"). Championship state (👑 / 🥈) and contributor state (bench
+// fade for non-best-per-sport entries) are layered on top.
 function teamChipHtml(t) {
   const classes = ['team-chip'];
   let extra = '';
@@ -1574,7 +1708,11 @@ function teamChipHtml(t) {
   else if (t.finalsStatus === 1) { classes.push('runner'); extra = ' 🥈'; }
   if (t.isContributor === false) classes.push('bench');
   const z = t.zScore.toFixed(2);
-  return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span>${t.team}${extra}<span class="z">${z}</span></span>`;
+  const shortName = TEAM_SHORT_NAME[t.team] || t.team;
+  const yr = t.seasonYear != null
+    ? `<span class="yr">${("'" + String(t.seasonYear).slice(-2))}</span> `
+    : '';
+  return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span>${yr}${shortName}${extra}<span class="z">${z}</span></span>`;
 }
 
 // Fleet-style numeric formatter: no + signs on positives.
