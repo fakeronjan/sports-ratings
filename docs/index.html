@@ -1571,6 +1571,7 @@ const PRE_1980_MARKET_START = {
   'San Diego__MLB':                            1969,  // Padres founded
   'Buffalo__NHL':                              1970,  // Sabres founded
   'Vancouver__NHL':                            1970,  // Canucks founded
+  'Winnipeg__NHL':                             1979,  // Original Jets joined NHL from WHA; new Jets 2011+ continue same market drought
 };
 
 // Short team names for chip display. Since the city is already established
@@ -2482,10 +2483,12 @@ async function renderCityDroughts() {
         if (!tenuresByCity[city]) tenuresByCity[city] = {};
         if (!tenuresByCity[city][sport]) tenuresByCity[city][sport] = {};
         const cur = tenuresByCity[city][sport][team];
-        if (!cur) tenuresByCity[city][sport][team] = { first: sy, last: sy };
-        else {
+        if (!cur) {
+          tenuresByCity[city][sport][team] = { first: sy, last: sy, years: new Set([sy]) };
+        } else {
           if (sy < cur.first) cur.first = sy;
           if (sy > cur.last) cur.last = sy;
+          cur.years.add(sy);
         }
         if (t.finalsStatus === 2) {
           const key = `${city}__${sport}`;
@@ -2604,7 +2607,12 @@ async function renderCityDroughts() {
       const ten = cityTenures[teamSport] && cityTenures[teamSport][teamRaw];
       if (!ten) return null;
       let teamStart = ten.first;
+      // Pre-1980 backfill: TEAM_MARKET_ENTRY extends team's first-year
+      // back to its actual founding (Bills 1960, Sabres 1970, etc.) and
+      // assumes no gap in that backfilled stretch.
+      const playedYears = new Set(ten.years);
       if (TEAM_MARKET_ENTRY[teamRaw] != null && TEAM_MARKET_ENTRY[teamRaw] < teamStart) {
+        for (let y = TEAM_MARKET_ENTRY[teamRaw]; y < teamStart; y++) playedYears.add(y);
         teamStart = TEAM_MARKET_ENTRY[teamRaw];
       }
       const teamEnd = ten.last;
@@ -2623,11 +2631,36 @@ async function renderCityDroughts() {
         droughtFirstYear = droughtStart + 1;
       }
 
-      const displayFirst = Math.max(teamStart, droughtFirstYear);
-      const displayLast  = Math.min(teamEnd, cityLatestSeason);
-      const count = Math.max(0, displayLast - displayFirst + 1);
+      // Pull actual years played in drought from the set (handles
+      // Charlotte Hornets 2002-2014 NBA gap, LA Rams 1994-2016 NFL gap,
+      // 1994 MLB strike year, 2005 NHL lockout year, etc.).
+      const inDrought = [];
+      for (const y of playedYears) {
+        if (y >= droughtFirstYear && y <= cityLatestSeason) inDrought.push(y);
+      }
+      inDrought.sort((a, b) => a - b);
+
+      // Split into contiguous ranges - any gap >=2 years breaks the chip
+      // into multiple "/'-joined" segments. 1-year strike / lockout gaps
+      // are absorbed without splitting (no visible break).
+      const ranges = [];
+      if (inDrought.length > 0) {
+        let start = inDrought[0], prev = inDrought[0];
+        for (let i = 1; i < inDrought.length; i++) {
+          if (inDrought[i] - prev > 2) {
+            ranges.push({ first: start, last: prev });
+            start = inDrought[i];
+          }
+          prev = inDrought[i];
+        }
+        ranges.push({ first: start, last: prev });
+      }
+
+      const count = inDrought.length;
       const refYear = isTitleTeam ? droughtStart : Math.min(teamEnd, cityLatestSeason);
-      return { displayFirst, displayLast, count, refYear, isTitleTeam, teamStart, teamEnd };
+      const displayFirst = ranges.length > 0 ? ranges[0].first : refYear;
+      const displayLast  = ranges.length > 0 ? ranges[ranges.length - 1].last : refYear;
+      return { ranges, displayFirst, displayLast, count, refYear, isTitleTeam, teamStart, teamEnd };
     };
 
     let teamYears = 0;
@@ -2641,6 +2674,7 @@ async function renderCityDroughts() {
         if (!currentTeamKeys.has(sportTeamKey) && dr.count > 0) {
           departedTeams.push({
             team, sport,
+            ranges: dr.ranges,
             displayFirst: dr.displayFirst, displayLast: dr.displayLast,
             count: dr.count, refYear: dr.refYear, isTitleTeam: dr.isTitleTeam,
           });
@@ -2651,9 +2685,10 @@ async function renderCityDroughts() {
 
     const annotatedCurrentTeams = currentTeams.map(t => {
       const dr = computeDroughtRange(t.team, t.sport);
-      if (!dr) return { ...t, displayFirst: cityLatestSeason, displayLast: cityLatestSeason, count: 0, refYear: cityLatestSeason };
+      if (!dr) return { ...t, ranges: [], displayFirst: cityLatestSeason, displayLast: cityLatestSeason, count: 0, refYear: cityLatestSeason };
       return {
         ...t,
+        ranges: dr.ranges,
         displayFirst: dr.displayFirst, displayLast: dr.displayLast,
         count: dr.count, refYear: dr.refYear, isTitleTeam: dr.isTitleTeam,
       };
@@ -2715,13 +2750,18 @@ async function renderCityDroughts() {
     // 2016 was a championship season, not a drought season).
     const renderDroughtChip = (t, isDeparted) => {
       const shortName = TEAM_SHORT_NAME[t.team] || t.team;
+      const yy = (n) => `'${String(n).slice(-2)}`;
       let rangeStr;
-      if (t.count === 0) {
-        rangeStr = `'${String(t.refYear).slice(-2)}`;
-      } else if (t.displayFirst === t.displayLast) {
-        rangeStr = `'${String(t.displayFirst).slice(-2)}`;
+      if (t.count === 0 || !t.ranges || t.ranges.length === 0) {
+        rangeStr = yy(t.refYear);
       } else {
-        rangeStr = `'${String(t.displayFirst).slice(-2)}-'${String(t.displayLast).slice(-2)}`;
+        // Multiple ranges = team had a relocation/return gap in drought
+        // (Charlotte Hornets '89-'02 / '15-'25, Winnipeg Jets '80-'95 /
+        // '12-'25, LA Rams '80-'94 / '16-'24). Single-year segments
+        // render as just 'YY.
+        rangeStr = t.ranges.map(r =>
+          r.first === r.last ? yy(r.first) : `${yy(r.first)}-${yy(r.last)}`
+        ).join(' / ');
       }
       const classes = ['team-chip'];
       let extra = '';
