@@ -2129,6 +2129,7 @@ async function renderCrossSportRankings() {
     const snap = data.snapshotMetros[parseInt(sel.value)];
     tbl.innerHTML = buildRankingsTable(snap.metros);
     const used = Object.entries(snap.snapshots_used || {})
+      .sort((a, b) => b[1].localeCompare(a[1]))
       .map(([k, v]) => `${k} ${v}`).join(' · ');
     meta.textContent = used ? `Sport rating windows: ${used}` : '';
     attachCityLinks();
