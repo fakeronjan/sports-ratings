@@ -173,6 +173,12 @@
     color: #1a6b8a;
     text-align: right;
   }
+  .team-years-cell {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #777;
+    text-align: right;
+  }
   .last-champ-sport {
     display: inline-block;
     background: #ddd;
@@ -623,7 +629,7 @@
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-droughts-view" class="view tab">
-    <p class="data-note">Years since each city's last championship across all the sports they field · Famous pre-1980 droughts (Cleveland NFL since 1964, Toronto NHL since 1967) carry through manually · "Never" means the city has never won a title in any sport they currently field</p>
+    <p class="data-note">Years since each city's last championship across all the sports they field · Team-Years multiplies that drought by current team count, so multi-team markets accumulate faster · Famous pre-1980 droughts (Cleveland NFL since 1964, Toronto NHL since 1967) carry through manually</p>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -2432,9 +2438,20 @@ async function renderCityDroughts() {
     const droughtStart = everWon ? bestTitleYear : earliestMarket;
     const drought = cityLatestSeason - droughtStart;
 
+    const teamCount = currentMetroByCity[city] ? currentMetroByCity[city].teams.length : 0;
+    // Team-Years: drought x current team count. Math is equivalent to
+    // "all team-level drought counters reset to 0 every time ANY team
+    // in the city wins; each subsequent year all counters tick up by 1
+    // and we sum them." Bigger cities accumulate faster but a recent
+    // title (e.g. Lynx 2017) zeroes the WHOLE thing - so Minnesota at
+    // 6 teams x 9 years = 54 doesn't unfairly top the list, but a
+    // multi-team city with a long shared drought (NY/NJ, LA, etc.)
+    // does climb above single-sport cities at similar drought lengths.
     records.push({
       city, drought, everWon, droughtStart,
       bestTitleTeam, bestTitleSport, sportsCount: sports.size,
+      teamCount,
+      teamYears: drought * teamCount,
       teams: currentMetroByCity[city] ? currentMetroByCity[city].teams : [],
     });
   }
@@ -2462,6 +2479,7 @@ async function renderCityDroughts() {
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
       <td class="num total-drought-cell">${r.drought}</td>
+      <td class="num team-years-cell">${r.teamYears}</td>
       ${lastCell}
       <td>${chips}</td>
     </tr>`;
@@ -2473,6 +2491,7 @@ async function renderCityDroughts() {
         <th class="num">Rank</th>
         <th>City</th>
         <th class="num">Years</th>
+        <th class="num">Team-Years</th>
         <th>Last Champion</th>
         <th>Teams</th>
       </tr></thead>
