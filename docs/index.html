@@ -85,18 +85,9 @@
   .view { display: none; }
   .view.active { display: block; }
 
-  .intro-note {
-    background: #fff;
-    border-left: 3px solid #1a6b8a;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    font-size: 12px;
-    color: #444;
-    border-radius: 3px;
-    line-height: 1.55;
-    max-width: 1100px;
-  }
-  .intro-note strong { color: #1a6b8a; }
+  /* Matches the fleet's .data-note style across DUNCAN / GRIFFEY / LOBO /
+     DILLON: subtle 11px gray, one-line, middle-dot separated. */
+  .data-note { font-size: 11px; color: #888; margin-bottom: 10px; }
 
   .controls {
     display: flex;
@@ -608,24 +599,15 @@
 <main id="main">
   <div id="current-summary-view" class="view active"></div>
   <div id="cross-sport-rankings-view" class="view tab">
-    <p class="intro-note">
-      <strong>Cross-Sport Rankings.</strong>
-      A rolling view captured at the end of each sport's season. Pick any championship moment to see how cities ranked when ratings are normalized for differences across sports. Cities with multiple teams in the same sport count just their best team in that sport. History goes back to 1980 (the earliest year with NBA, NFL, MLB, and NHL all on board); WNBA and MLS start contributing in 1997 / 1996.
-    </p>
+    <p class="data-note">City rankings at any championship moment · Cities with multiple teams in the same sport count just their best · History covers 1980-present (WNBA / MLS contribute from 1997 / 1996 on).</p>
     <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-history-view" class="view tab">
-    <p class="intro-note">
-      <strong>City History.</strong>
-      Pick any city to see how its strength has moved over time. Each dot represents one championship moment from a major league season (NBA Finals, NFL Super Bowl, MLB World Series, WNBA Finals, NHL Stanley Cup, MLS Cup). The trophy markers above the line show when one of the city's teams won a championship (👑) or was runner-up (🥈).
-    </p>
+    <p class="data-note">One city's cross-sport strength over time · Trophy markers (👑 / 🥈) flag the moment a city's team won or lost their championship · Only leagues the city fields are plotted.</p>
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="goat-table-view" class="view tab">
-    <p class="intro-note">
-      <strong>GOAT Table.</strong>
-      Top 50 (city, year) peaks across 1997-present. Tampa Bay 2021 (Bucs Super Bowl + Lightning Cup + Rays World Series), Boston 2007 (Patriots 16-0 + Red Sox World Series), and LA 2002 sit at the top.
-    </p>
+    <p class="data-note">Top 50 (city, year) peaks across 1980-present · Peak counts only above-average teams; Score includes the drag from below-average ones · Tampa Bay 2021 (Bucs SB + Lightning Cup + Rays WS), Boston 2007 (Patriots 16-0 + Red Sox WS), and LA 2002 sit near the top.</p>
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
