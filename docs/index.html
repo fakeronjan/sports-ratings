@@ -2569,9 +2569,9 @@ async function renderCityDroughts() {
         ? `<span class="last-champ-sport">${r.bestTitleSport}</span>`
         : '';
       const reigningCls = r.drought === 0 ? 'reigning' : '';
-      lastCell = `<td class="${reigningCls}">${sportTag}${r.droughtStart} ${shortTeam}</td>`;
+      lastCell = `<td class="${reigningCls}" style="white-space:nowrap">${sportTag}${r.droughtStart} ${shortTeam}</td>`;
     } else {
-      lastCell = `<td style="color:#888">Never (since ${r.droughtStart})</td>`;
+      lastCell = `<td style="color:#888;white-space:nowrap">Never (since ${r.droughtStart})</td>`;
     }
     // Both current + departed chips show the team's drought-aligned year
     // range ('60-'25) and the count of years inside the drought as the
@@ -2580,7 +2580,10 @@ async function renderCityDroughts() {
     // the highest-contributing teams float to the left.
     const renderDroughtChip = (t, isDeparted) => {
       const shortName = TEAM_SHORT_NAME[t.team] || t.team;
-      const range = `'${String(t.firstYear).slice(-2)}-'${String(t.lastYear).slice(-2)}`;
+      const singleYear = t.firstYear === t.lastYear;
+      const range = singleYear
+        ? `'${String(t.firstYear).slice(-2)}`
+        : `'${String(t.firstYear).slice(-2)}-'${String(t.lastYear).slice(-2)}`;
       const years = t.lastYear - t.firstYear;
       const classes = ['team-chip'];
       let extra = '';
@@ -2591,7 +2594,10 @@ async function renderCityDroughts() {
       } else if (t.finalsStatus === 1) {
         classes.push('runner'); extra = ' 🥈';
       }
-      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}<span class="z">${years}</span></span>`;
+      // Single-year teams (e.g. Tempo just arrived '25-'25 -> '25) drop
+      // the count entirely since years-in-drought = 0 isn't meaningful.
+      const yearsHtml = years > 0 ? `:<span class="z">${years}</span>` : '';
+      return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${range}</span> ${shortName}${extra}${yearsHtml}</span>`;
     };
     const allChips = [
       ...r.teams.map(t => ({ ...t, _isDeparted: false })),
