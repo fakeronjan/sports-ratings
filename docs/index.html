@@ -1571,7 +1571,7 @@ const PRE_1980_MARKET_START = {
   'San Diego__MLB':                            1969,  // Padres founded
   'Buffalo__NHL':                              1970,  // Sabres founded
   'Vancouver__NHL':                            1970,  // Canucks founded
-  'Winnipeg__NHL':                             1979,  // Original Jets joined NHL from WHA; new Jets 2011+ continue same market drought
+  'Winnipeg__NHL':                             1980,  // Original Jets first NHL season 1979-80 (data = season-end year 1980); new Jets 2011+ continue same market drought
 };
 
 // Short team names for chip display. Since the city is already established
@@ -2588,7 +2588,29 @@ async function renderCityDroughts() {
 
     const everWon = bestTitleYear > -Infinity;
     const droughtStart = everWon ? bestTitleYear : earliestMarket;
-    const drought = cityLatestSeason - droughtStart;
+
+    // Years column = count of years in [droughtStart, cityLatestSeason]
+    // (excluding the title year itself if the city ever won) where the
+    // city had AT LEAST ONE team active in any sport. So Winnipeg drops
+    // from 46 (calendar diff) to 31 (active years); Charlotte stays at
+    // 36 because the Panthers were playing every year the Hornets weren't.
+    const cityActiveYears = new Set();
+    for (const sport in cityTenures) {
+      for (const team in cityTenures[sport]) {
+        const ten = cityTenures[sport][team];
+        for (const y of ten.years) cityActiveYears.add(y);
+        if (TEAM_MARKET_ENTRY[team] != null) {
+          for (let y = TEAM_MARKET_ENTRY[team]; y < ten.first; y++) cityActiveYears.add(y);
+        }
+      }
+    }
+    let drought = 0;
+    const droughtRangeLow = everWon ? droughtStart + 1 : droughtStart;
+    for (const y of cityActiveYears) {
+      if (y >= droughtRangeLow && y <= cityLatestSeason) drought++;
+    }
+    const calendarYears = cityLatestSeason - droughtRangeLow + 1;
+    const deadYears = Math.max(0, calendarYears - drought);
 
     // Season-Years: each team contributes the COUNT of completed seasons
     // they played inside the drought period. Calendar order matters
@@ -2711,7 +2733,7 @@ async function renderCityDroughts() {
     const topChamps = allChamps.slice(0, 3);
 
     records.push({
-      city, drought, teamYears, everWon, droughtStart,
+      city, drought, teamYears, everWon, droughtStart, deadYears,
       bestTitleTeam, bestTitleSport, bestTitleNote,
       sportsCount: currentSportsSet.size,
       teams: annotatedCurrentTeams,
@@ -2801,7 +2823,7 @@ async function renderCityDroughts() {
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}${sportsTag}</td>
       ${lastCell}
       <td>${chipsHtml}</td>
-      <td class="num total-drought-cell">${r.drought}</td>
+      <td class="num total-drought-cell">${r.drought}${r.deadYears > 0 ? ` <span class="champ-note" title="${r.deadYears} years with no team in any sport">(+${r.deadYears} gap)</span>` : ''}</td>
       <td class="num team-years-cell">${r.teamYears}</td>
     </tr>`;
   }).join('');
