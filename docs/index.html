@@ -2455,6 +2455,14 @@ async function renderCityDroughts() {
   const lastTitle = {};
   const latestSeason = {};
   const cityChamps = {};
+  // Reigning champion + runner-up GLOBALLY per sport, taken from the most
+  // recent finalsStatus=2 / =1 in our historical snapshots. Live
+  // current_standings.json doesn't reliably tag reigning champs across
+  // most sister sites (NBA / NHL / MLB / MLS / WNBA all return 0), so we
+  // fall back to the cron-built city_index_history.json which IS tagged
+  // correctly via the Python champ_status() coalescer.
+  const reigningChamps = {};
+  const reigningRUs = {};
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
@@ -2476,6 +2484,14 @@ async function renderCityDroughts() {
           }
           if (!cityChamps[city]) cityChamps[city] = [];
           cityChamps[city].push({ year: sy, team, sport });
+          if (!reigningChamps[sport] || sy > reigningChamps[sport].year) {
+            reigningChamps[sport] = { year: sy, team };
+          }
+        }
+        if (t.finalsStatus === 1) {
+          if (!reigningRUs[sport] || sy > reigningRUs[sport].year) {
+            reigningRUs[sport] = { year: sy, team };
+          }
         }
       }
     }
@@ -2700,17 +2716,21 @@ async function renderCityDroughts() {
       const classes = ['team-chip'];
       let extra = '';
       let suppressCount = false;
-      // Badges only for the most-recent (current snapshot) champion / RU,
-      // matching how the other tabs render. Drought-defining past champions
-      // who aren't currently reigning (Cleveland Cavs 2016, etc.) get no
-      // marker - they fall through to the season-count display.
+      // Badge if the chip's team is the reigning champion or RU of their
+      // sport (derived from city_index_history.json since live data is
+      // inconsistent). Past champions who aren't currently reigning
+      // (Cleveland Cavs 2016, Buffalo Bills 1965) get no marker.
+      const reignC = reigningChamps[t.sport];
+      const reignR = reigningRUs[t.sport];
+      const isReigningChamp = reignC && reignC.team === t.team;
+      const isReigningRU    = reignR && reignR.team === t.team;
       if (isDeparted) {
         classes.push('departed');
-      } else if (t.finalsStatus === 2) {
+      } else if (isReigningChamp) {
         classes.push('win'); extra = ' 👑'; suppressCount = true;
-      } else if (t.finalsStatus === 1) {
+      } else if (isReigningRU) {
         classes.push('runner'); extra = ' 🥈';
-        // 🥈 still shows the count - they LOST the Finals, so they're
+        // 🥈 still shows the count - they lost the Finals, so they're
         // still in drought.
       }
       // 👑 reigning champ: badge only (count is always 0 anyway).
