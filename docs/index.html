@@ -2397,6 +2397,24 @@ async function renderGoatYears() {
   attachCityLinks();
 }
 
+// Sport calendar order within a season-year - the chronological sequence
+// in which each sport's playoffs wrap. Used by the City Droughts tab to
+// rank championships within the same year and to decide which teams have
+// "completed a season since" the city's most recent title. Source: matches
+// the Cross-Sport Rankings snapshot-date dropdown.
+//   NBA Finals + NHL Stanley Cup: June (tied at 1)
+//   WNBA Finals:                  October
+//   MLB World Series:             October-November
+//   MLS Cup:                      December
+//   NFL Super Bowl:               February of next calendar year (latest)
+const SPORT_CALENDAR_ORDER = {
+  NBA: 1, NHL: 1,
+  WNBA: 2,
+  MLB:  3,
+  MLS:  4,
+  NFL:  5,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-view: City Droughts
 // For each city, find the most recent championship across ALL the sports
@@ -2483,12 +2501,12 @@ async function renderCityDroughts() {
     const currentSportsSet = new Set(currentTeams.map(t => t.sport));
     const currentTeamKeys = new Set(currentTeams.map(t => `${t.sport}__${t.team}`));
 
-    // Drought_start: max title year across all sports this city has ever
-    // had (so departed sports still contribute) - data lastTitle plus
-    // PRE_1980_LAST_TITLE entries for the same city. PRE_1980 entries
-    // can carry an optional inline note (e.g. "AFL") that surfaces in
-    // the Last Champion cell.
+    // Drought_start: most recent title across all sports this city has
+    // ever had, using calendar order (year * 100 + sport_ord). Within
+    // 2025, Inter Miami's MLS Cup (Dec) beats Panthers's Stanley Cup
+    // (June). Within 1980, Phillies Oct WS beats Lakers June Finals.
     let bestTitleYear = -Infinity, bestTitleTeam = null, bestTitleSport = null, bestTitleNote = null;
+    let bestTitleKey = -Infinity;
     const sportsEverInCity = new Set([...Object.keys(cityTenures), ...currentSportsSet]);
     for (const sport of sportsEverInCity) {
       const key = `${city}__${sport}`;
@@ -2501,9 +2519,14 @@ async function renderCityDroughts() {
         titleTeam = PRE_1980_LAST_TITLE[key][1];
         titleNote = PRE_1980_LAST_TITLE[key][2] || null;
       }
-      if (titleYear != null && titleYear > bestTitleYear) {
-        bestTitleYear = titleYear; bestTitleTeam = titleTeam;
-        bestTitleSport = sport; bestTitleNote = titleNote;
+      if (titleYear != null) {
+        const titleOrd = SPORT_CALENDAR_ORDER[sport] || 99;
+        const titleKey = titleYear * 100 + titleOrd;
+        if (titleKey > bestTitleKey) {
+          bestTitleKey = titleKey;
+          bestTitleYear = titleYear; bestTitleTeam = titleTeam;
+          bestTitleSport = sport; bestTitleNote = titleNote;
+        }
       }
     }
 
@@ -2539,15 +2562,18 @@ async function renderCityDroughts() {
     const drought = cityLatestSeason - droughtStart;
 
     // Season-Years: each team contributes the COUNT of completed seasons
-    // they played inside the drought period. For the title-winning team
-    // their drought starts the year AFTER the win (2016 Cavs win doesn't
-    // count toward the Cavs' own drought; 2017+ does). For other teams
-    // the drought_start year DOES count - they played that season and
-    // didn't win it.
-    //
-    // count = max(0, displayLast - displayFirst + 1) where displayFirst
-    // is (droughtStart + 1) for the title team, max(teamStart, droughtStart)
-    // for everyone else.
+    // they played inside the drought period. Calendar order matters
+    // within the title year:
+    //   - title team: their win year excluded entirely; count starts at
+    //     droughtStart + 1
+    //   - other team in sport whose playoffs end AFTER the title's sport
+    //     in the calendar (teamOrd > titleOrd): their droughtStart-year
+    //     season completes after the title, so it counts
+    //   - other team in sport whose playoffs end BEFORE or AT the title's
+    //     sport (teamOrd <= titleOrd, including same sport): their
+    //     droughtStart-year season completed before the title, so skip
+    //     droughtStart and start counting from droughtStart + 1
+    //   - never-won city: every team's tenure-overlapping years count
     const computeDroughtRange = (teamRaw, teamSport) => {
       const ten = cityTenures[teamSport] && cityTenures[teamSport][teamRaw];
       if (!ten) return null;
@@ -2557,14 +2583,23 @@ async function renderCityDroughts() {
       }
       const teamEnd = ten.last;
       const isTitleTeam = (teamRaw === bestTitleTeam && teamSport === bestTitleSport);
-      const displayFirst = isTitleTeam
-        ? droughtStart + 1
-        : Math.max(teamStart, droughtStart);
-      const displayLast = Math.min(teamEnd, cityLatestSeason);
+      const titleOrd = SPORT_CALENDAR_ORDER[bestTitleSport] || 99;
+      const teamOrd  = SPORT_CALENDAR_ORDER[teamSport]     || 99;
+
+      let droughtFirstYear;
+      if (!everWon) {
+        droughtFirstYear = droughtStart;
+      } else if (isTitleTeam) {
+        droughtFirstYear = droughtStart + 1;
+      } else if (teamOrd > titleOrd) {
+        droughtFirstYear = droughtStart;
+      } else {
+        droughtFirstYear = droughtStart + 1;
+      }
+
+      const displayFirst = Math.max(teamStart, droughtFirstYear);
+      const displayLast  = Math.min(teamEnd, cityLatestSeason);
       const count = Math.max(0, displayLast - displayFirst + 1);
-      // refYear is the year shown when count == 0 (reigning team or
-      // tenure entirely before drought): title team -> their win year,
-      // others -> their last appearance.
       const refYear = isTitleTeam ? droughtStart : Math.min(teamEnd, cityLatestSeason);
       return { displayFirst, displayLast, count, refYear, isTitleTeam, teamStart, teamEnd };
     };
