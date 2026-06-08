@@ -1007,7 +1007,16 @@ function _fmtMonthYY(iso) {
 async function loadTennisCurrent(gender) {
   const slug = gender === 'M' ? 'atp' : 'wta';
   const data = await fetchJson(`${GH}/tennis/data/power_rankings_history_${slug}.json`);
-  const snap = (data && data.snapshots && data.snapshots['Today']) || null;
+  // The engine only emits a "Today" snapshot when the latest match date differs
+  // from the latest Grand Slam date. During a slam (the latest data point IS the
+  // slam) "Today" collapses into the slam snapshot, so fall back to the most
+  // recent snapshot - they're written in chronological order, last key is freshest.
+  const snaps = (data && data.snapshots) || null;
+  let snap = null;
+  if (snaps) {
+    const keys = Object.keys(snaps);
+    snap = snaps['Today'] || (keys.length ? snaps[keys[keys.length - 1]] : null);
+  }
   if (!snap) return { columns: TENNIS_COLS, rows: [], updated: '' };
   const rows = snap.players.slice(0, 5).map(p => {
     const flag = p.country ? `${p.country} ` : '';
