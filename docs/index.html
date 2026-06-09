@@ -1001,14 +1001,15 @@ const TENNIS_COLS = [
 ];
 
 // Tennis dates are tournament-granular (every match carries the event's start
-// date), so we show month/year only - no false day precision. A slam runs ~2 weeks,
-// so for slam snapshots we add 14d and the label reads the month the event finished
-// in (Roland Garros -> June, not May). EOY/Today are exact.
+// date), so we show year-month only (YYYY-MM, matching the rest of the fleet) -
+// no false day precision. A slam runs ~2 weeks, so for slam snapshots we add 14d
+// and the label reads the month the event finished in (Roland Garros -> June, not
+// May). EOY/Today are exact.
 function _fmtWindowMonth(iso, type) {
   if (!iso) return '';
   const d = new Date(`${iso}T00:00:00Z`);
   if (type === 'slam') d.setUTCDate(d.getUTCDate() + 14);
-  return `${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 async function loadTennisCurrent(gender) {
