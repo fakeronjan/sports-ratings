@@ -1087,7 +1087,7 @@ const CADENCE_BY_SLUG = {
   eurosoccer: 'daily', mls: 'daily', intlsoccer: 'daily',
   mlb: 'daily', nhl: 'daily',
   intlbasketball: 'daily', intlbaseball: 'daily', intlhockey: 'daily',
-  tennis: 'daily', thechallenge: 'manual',
+  tennis: 'tournament', thechallenge: 'manual',
 };
 
 const SECTIONS = [
@@ -1175,8 +1175,9 @@ function renderCard(card, payload, error) {
     body = `<div class="card-loading">Loading…</div>`;
   }
   const cadenceLabel = {
-    daily:  '🔄 Updated daily',
-    manual: '🛠️ Updated manually',
+    daily:      '🔄 Updated daily',
+    tournament: '🎾 Updated after tournaments',
+    manual:     '🛠️ Updated manually',
   }[CADENCE_BY_SLUG[card.slug]] || '';
   const cadenceHtml = cadenceLabel
     ? `<span class="card-cadence">${cadenceLabel}</span>`
