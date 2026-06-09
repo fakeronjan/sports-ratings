@@ -440,6 +440,8 @@
     color: #1a1a1a;
     overflow: hidden;
     max-width: 1px; /* tells browser to honor truncation inside fixed table */
+    white-space: nowrap;     /* names NEVER wrap - holds even for raw-string cells (TENNIS card) */
+    text-overflow: ellipsis;
   }
   /* Inside td.name we flex so the team name truncates with ellipsis but
      trophy badges stay fully visible on the right. */
@@ -2223,9 +2225,12 @@ function renderSingleCityChart(cityName, data) {
       : new Set([s.kind]);
     const hasChamp = m.teams.some(t => t.finalsStatus === 2 && trophySports.has(t.sport));
     const hasRu    = m.teams.some(t => t.finalsStatus === 1 && trophySports.has(t.sport));
+    // City's rank among all metros at this snapshot by Vibe (1 + count strictly above).
+    const field = s.metros.filter(x => x.vibeZ != null);
+    const rank = 1 + field.filter(x => x.vibeZ > m.vibeZ).length;
     points.push({
       date: s.date, label: s.label, year: s.year,
-      vibeZ: m.vibeZ,
+      vibeZ: m.vibeZ, rank,
       teams: m.teams, kind: s.kind,
       hasChamp, hasRu,
     });
@@ -2312,6 +2317,7 @@ function renderSingleCityChart(cityName, data) {
     return `<tr>
       <td class="num">${p.date}</td>
       <td class="year-cell linked" data-year-link="${p.year}">${p.label}</td>
+      <td class="num">${p.rank}</td>
       <td class="num vibe-cell">${fmtScore(p.vibeZ)}</td>
       <td>${chips}</td>
     </tr>`;
@@ -2321,6 +2327,7 @@ function renderSingleCityChart(cityName, data) {
       <thead><tr>
         <th style="width:90px">Date</th>
         <th style="width:170px">Rating Window</th>
+        <th class="num" style="width:50px">Rank</th>
         <th class="num" style="width:60px">Vibe</th>
         <th>Teams</th>
       </tr></thead>
