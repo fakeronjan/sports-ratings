@@ -998,10 +998,14 @@ const TENNIS_COLS = [
   { label: 'Rating', cls: 'rating' },
 ];
 
-function _fmtMonthYY(iso) {
+// Slam snapshots are anchored on the tournament's START date, but a slam runs
+// ~2 weeks - nudge slam window months +14d so the label shows the month the
+// event actually finished in (Roland Garros -> June, not May). EOY/Today are exact.
+function _fmtWindowMonth(iso, type) {
   if (!iso) return '';
-  const [y, m] = iso.split('-');
-  return `${parseInt(m, 10)}/${y.slice(2)}`;
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (type === 'slam') d.setUTCDate(d.getUTCDate() + 14);
+  return `${d.getUTCMonth() + 1}/${String(d.getUTCFullYear()).slice(2)}`;
 }
 
 async function loadTennisCurrent(gender) {
@@ -1034,7 +1038,7 @@ async function loadTennisCurrent(gender) {
   return {
     columns: TENNIS_COLS,
     rows,
-    seasonName: `Timeframe ${_fmtMonthYY(snap.window_start)} - ${_fmtMonthYY(snap.window_end)}`,
+    seasonName: `Timeframe ${_fmtWindowMonth(snap.window_start, snap.type)} - ${_fmtWindowMonth(snap.window_end, snap.type)}`,
     updated: `Last matches added: ${snap.date}`,
   };
 }
