@@ -1034,7 +1034,7 @@ async function loadTennisCurrent(gender) {
   return {
     columns: TENNIS_COLS,
     rows,
-    seasonName: `Snapshot ${_fmtMonthYY(snap.window_start)} - ${_fmtMonthYY(snap.window_end)}`,
+    seasonName: `Timeframe ${_fmtMonthYY(snap.window_start)} - ${_fmtMonthYY(snap.window_end)}`,
     updated: `Last matches added: ${snap.date}`,
   };
 }
@@ -2228,7 +2228,7 @@ function renderSingleCityChart(cityName, data) {
 
   if (points.length === 0) {
     wrap.style.display = 'none';
-    tableEl.innerHTML = `<p class="loading">${cityName} has no snapshots in the history.</p>`;
+    tableEl.innerHTML = `<p class="loading">${cityName} has no ratings in the range.</p>`;
     return;
   }
 
