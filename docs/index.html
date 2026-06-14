@@ -3470,14 +3470,14 @@ async function renderTeamDroughtBreakers() {
   const top = records.slice(0, TOP_N);
 
   const rows = top.map((r, i) => {
-    const sinceCell = r.isFirst
-      ? `<span class="champ-note">first title · since ${r.since}</span>`
-      : `<span class="champ-note">since ${r.since}</span>`;
+    const sinceLine = r.isFirst ? `(first title · since ${r.since})` : `(since ${r.since})`;
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell" style="white-space:nowrap"><span class="last-champ-sport">${r.sport}</span>${r.name}</td>
-      <td style="white-space:nowrap;vertical-align:middle"><span class="team-chip win">${r.year} 👑</span></td>
-      <td style="white-space:nowrap;vertical-align:middle">${sinceCell}</td>
+      <td style="white-space:nowrap;vertical-align:top">
+        <div class="champ-line">${r.year} 👑</div>
+        <div class="champ-line">${sinceLine}</div>
+      </td>
       <td class="num total-drought-cell">${r.drought}</td>
     </tr>`;
   }).join('');
@@ -3487,8 +3487,7 @@ async function renderTeamDroughtBreakers() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>Team</th>
-        <th>Drought-Ending Title</th>
-        <th>Drought Since</th>
+        <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(previous title in parens)</span></th>
         <th class="num drought-stack">Years<br>ended</th>
       </tr></thead>
       <tbody>${rows}</tbody>
