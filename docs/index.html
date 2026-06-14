@@ -213,6 +213,24 @@
     border-color: #1a6b8a;
     color: #fff;
   }
+  /* Global league-filter bar (shown on city-based tabs only). */
+  #league-filter {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 12px 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #league-filter .drought-toggle { margin-bottom: 0; }
+  .league-filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #999;
+  }
   /* Drop the chip-pill background on non-medal chips so the 🥈 silver and
      👑 gold backgrounds stand out against text-style siblings. */
   .droughts-table .team-chip:not(.win):not(.runner):not(.departed) {
@@ -688,6 +706,15 @@
   <button data-view="goat-table" role="tab">GOAT Table</button>
   <button data-view="city-droughts" role="tab">City Droughts</button>
 </nav>
+
+<div id="league-filter" style="display:none">
+  <span class="league-filter-label">Leagues</span>
+  <div class="drought-toggle" role="tablist">
+    <button data-preset="big4" role="tab">Historical Big 4</button>
+    <button data-preset="big4mls" role="tab">Big 4 + MLS</button>
+    <button class="active" data-preset="all" role="tab">All</button>
+  </div>
+</div>
 
 <main id="main">
   <div id="current-summary-view" class="view active"></div>
@@ -1276,15 +1303,42 @@ const cityRenderers = {
   'city-droughts':        renderCityDroughts,
 };
 const cityRendered = {};
+const CITY_TABS = new Set(Object.keys(cityRenderers));
 document.querySelectorAll('nav.view-tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.view;
     document.querySelectorAll('nav.view-tabs button').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `${target}-view`));
+    document.getElementById('league-filter').style.display = CITY_TABS.has(target) ? '' : 'none';
     if (cityRenderers[target] && !cityRendered[target]) {
       cityRendered[target] = true;
       cityRenderers[target]();
     }
+  });
+});
+
+// Re-render whichever city tab is active (used after a league-preset change).
+// City Droughts respects its current mode + scope sub-state.
+function renderActiveCityTab() {
+  const activeBtn = document.querySelector('nav.view-tabs button.active');
+  const target = activeBtn && activeBtn.dataset.view;
+  if (!CITY_TABS.has(target)) return;
+  if (target === 'city-droughts') {
+    if (droughtMode === 'broken') renderBrokenView(); else renderCityDroughts();
+  } else {
+    cityRenderers[target]();
+  }
+}
+
+// Global league filter: switch preset, invalidate the lazy-render cache so other
+// tabs refresh on next visit, and re-render the active tab now.
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (leaguePreset === btn.dataset.preset) return;
+    leaguePreset = btn.dataset.preset;
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', b === btn));
+    Object.keys(cityRendered).forEach(k => delete cityRendered[k]);
+    renderActiveCityTab();
   });
 });
 
@@ -1293,12 +1347,14 @@ document.querySelectorAll('nav.view-tabs button').forEach(btn => {
 // Active; these buttons swap the notes block and re-render the chosen view (all
 // renderers are idempotent + read the cached cityData via ensureCityData).
 let droughtScope = 'city';
+let droughtMode = 'active';
 function renderBrokenView() {
   return droughtScope === 'team' ? renderTeamDroughtBreakers() : renderDroughtBreakers();
 }
 document.querySelectorAll('[data-dmode]').forEach(btn => {
   btn.addEventListener('click', () => {
     const mode = btn.dataset.dmode;
+    droughtMode = mode;
     document.querySelectorAll('[data-dmode]').forEach(b => b.classList.toggle('active', b === btn));
     document.getElementById('drought-active-notes').style.display = mode === 'active' ? '' : 'none';
     document.getElementById('drought-broken-notes').style.display = mode === 'broken' ? '' : 'none';
@@ -2016,7 +2072,13 @@ function aggregateMetros(sportPayloads) {
     }
   }
 
-  return Object.values(metros).map(m => {
+  return Object.values(metros).map(finalizeMetro);
+}
+
+// Compute a metro's Vibe + supporting fields from its .teams (each team must
+// already carry zScore / effectiveZ). Extracted from aggregateMetros so the
+// league filter can re-finalize a metro after dropping excluded-league teams.
+function finalizeMetro(m) {
     m.nTeams  = m.teams.length;
     m.nSports = new Set(m.teams.map(t => t.sport)).size;
     // Vibe: max-over-K Stouffer of POSITIVE z-scores across ALL of the
@@ -2071,7 +2133,6 @@ function aggregateMetros(sportPayloads) {
       .reduce((s, t) => s + t.zScore, 0);
     m.teams.sort((a, b) => b.effectiveZ - a.effectiveZ);
     return m;
-  });
 }
 
 // Cached state used by all four sub-views.
@@ -2177,6 +2238,41 @@ async function ensureCityData() {
     return cityData;
   }
 }
+
+// ── League filter ─────────────────────────────────────────────────────────────
+// Three nested presets in league-founding order; 'all' (default) preserves the
+// original behavior. Applies globally across the city-based tabs (Cross-Sport
+// Rankings, City History, GOAT Table, City Droughts).
+const LEAGUE_PRESETS = {
+  'big4':    { label: 'Historical Big 4', sports: ['NBA', 'NFL', 'MLB', 'NHL'] },
+  'big4mls': { label: 'Big 4 + MLS',      sports: ['NBA', 'NFL', 'MLB', 'NHL', 'MLS'] },
+  'all':     { label: 'All',              sports: ['NBA', 'NFL', 'MLB', 'NHL', 'MLS', 'WNBA'] },
+};
+let leaguePreset = 'all';
+function currentSports() { return new Set(LEAGUE_PRESETS[leaguePreset].sports); }
+
+// League-filtered VIEW of cityData, WITHOUT mutating the cache: drop excluded-
+// league teams from every metro and re-finalize each metro's Vibe (per-team
+// z-scores are within-sport, so they don't change - only which teams feed a
+// city's Vibe / drought does). Metros left empty are dropped.
+function filterCityData(data) {
+  if (!data || data.error) return data;
+  const sports = currentSports();
+  if (sports.size >= 6) return data;     // 'all' -> no filtering
+  const filterMetros = (metros) => (metros || [])
+    .map(m => {
+      const teams = m.teams.filter(t => sports.has(t.sport));
+      if (teams.length === 0) return null;
+      return finalizeMetro({ name: m.name, teams: teams.map(t => ({ ...t })) });
+    })
+    .filter(Boolean)
+    .sort(vibeRankCompare);
+  return {
+    current: filterMetros(data.current),
+    snapshotMetros: (data.snapshotMetros || []).map(s => ({ ...s, metros: filterMetros(s.metros) })),
+  };
+}
+async function viewCityData() { return filterCityData(await ensureCityData()); }
 
 // Wire sub-tab clicks once on DOM ready (after the parent 'cities' tab
 // has been clicked at least once).
@@ -2309,7 +2405,7 @@ function navigateToYear(year) {
 async function renderCrossSportRankings() {
   const el = document.getElementById('cross-sport-rankings-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) {
     el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
@@ -2355,7 +2451,7 @@ async function renderCrossSportRankings() {
 async function renderCityHistory() {
   const el = document.getElementById('city-history-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) {
     el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
@@ -2540,7 +2636,7 @@ function renderSingleCityChart(cityName, data) {
 async function renderGoatYears() {
   const el = document.getElementById('goat-table-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) {
     el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
@@ -2662,7 +2758,7 @@ const SPORT_CALENDAR_ORDER = {
 async function renderCityDroughts() {
   const el = document.getElementById('city-droughts-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) {
     el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`;
     return;
@@ -3081,7 +3177,7 @@ async function renderCityDroughts() {
 async function renderDroughtBreakers() {
   const el = document.getElementById('city-droughts-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
 
   // Walk snapshots -> per-city tenures + the city's championship timeline.
@@ -3305,7 +3401,7 @@ async function renderDroughtBreakers() {
 async function renderTeamDroughtBreakers() {
   const el = document.getElementById('city-droughts-content');
   el.innerHTML = '<p class="loading">Loading...</p>';
-  const data = await ensureCityData();
+  const data = await viewCityData();
   if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
 
   const DATA_FLOOR = 1980;
