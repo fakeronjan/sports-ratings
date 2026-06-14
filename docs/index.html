@@ -188,10 +188,6 @@
     min-width: 92px;
   }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
-  /* Breakers view inserts a "Drought Since" col before Teams, so Teams is
-     col 5 there: keep "Drought Since" shrink-to-content and let Teams flex. */
-  .droughts-table.breakers td:nth-child(4) { width: 1%; white-space: nowrap; }
-  .droughts-table.breakers td:nth-child(5) { width: auto; }
   /* Active / Drought-Breakers mode toggle (City Droughts tab). */
   .drought-toggle {
     display: flex;
@@ -3103,14 +3099,17 @@ async function renderDroughtBreakers() {
   const rows = top.map((r, i) => {
     const b = r.breaker;
     const bShort = TEAM_SHORT_NAME[b.team] || b.team;
-    const breakerChip = `<span class="team-chip win"><span class="sport-tag">${b.sport}</span><span class="yr">${yy(b.year)}</span> ${bShort} 👑</span>`;
-    let priorCell;
+    // Narrative cell: the drought-ending title on top, the drought's origin
+    // underneath (auto-styled smaller/gray via the .champ-line + .champ-line
+    // rule, matching the active tab's stacked Last Champion column).
+    const titleLine = `<div class="champ-line"><span class="last-champ-sport">${b.sport}</span>${b.year} ${bShort} 👑</div>`;
+    let sinceLine;
     if (r.isFirst) {
-      priorCell = `<span class="champ-note">City's first title · since ${r.droughtStart}</span>`;
+      sinceLine = `<div class="champ-line">city's first title · since ${r.droughtStart}</div>`;
     } else {
       const pShort = TEAM_SHORT_NAME[r.prior.team] || r.prior.team;
       const note = r.prior.note ? ` <span class="champ-note">(${r.prior.note})</span>` : '';
-      priorCell = `<span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note}`;
+      sinceLine = `<div class="champ-line">ended drought since <span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note}</div>`;
     }
     const curKeys = currentTeamKeysByCity[r.city] || new Set();
     const teamsCell = r.teams
@@ -3120,8 +3119,7 @@ async function renderDroughtBreakers() {
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
-      <td style="white-space:nowrap;vertical-align:middle">${breakerChip}</td>
-      <td style="white-space:nowrap;vertical-align:middle">${priorCell}</td>
+      <td style="white-space:nowrap;vertical-align:top">${titleLine}${sinceLine}</td>
       <td style="vertical-align:middle">${teamsCell}</td>
       <td class="num team-years-cell">${r.calendarYears}</td>
       <td class="num total-drought-cell">${r.seasonYears}${preMark}</td>
@@ -3133,12 +3131,11 @@ async function renderDroughtBreakers() {
     : '';
 
   el.innerHTML = `
-    <table class="droughts-table breakers">
+    <table class="droughts-table">
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Title That Ended It</th>
-        <th>Drought Since</th>
+        <th>Drought-Ending Title</th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
         <th class="num drought-stack">Years</th>
         <th class="num drought-stack">Season-Years<br>ended</th>
