@@ -188,6 +188,10 @@
     min-width: 92px;
   }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
+  /* Breakers view inserts a "Drought Since" col before Teams, so Teams is
+     col 5 there: keep "Drought Since" shrink-to-content and let Teams flex. */
+  .droughts-table.breakers td:nth-child(4) { width: 1%; white-space: nowrap; }
+  .droughts-table.breakers td:nth-child(5) { width: auto; }
   /* Active / Drought-Breakers mode toggle (City Droughts tab). */
   .drought-toggle {
     display: flex;
@@ -2992,15 +2996,20 @@ async function renderDroughtBreakers() {
 
   const calKey = (y, sport) => y * 100 + (SPORT_CALENDAR_ORDER[sport] || 99);
 
-  // Season-Years of futility for one city across (droughtStart, titleYear],
-  // mirroring the active view's calendar-order nuance: a team's title-year
-  // season counts as futility only if its sport's playoffs finish before the
-  // drought-ending title. The ending team's own championship season is excluded.
-  const seasonYearsFor = (city, droughtStart, isFirstTitle, priorSport, endTitle) => {
+  // Per-team futility breakdown for one city across (droughtStart, titleYear].
+  // Mirrors the active view's computeDroughtRange exactly at the start boundary
+  // (a team's drought-start-year season counts only if its sport finishes after
+  // the prior title; same played-years Set so strike/lockout/relocation gaps are
+  // honored; TEAM_MARKET_ENTRY backfills pre-1980 tenure) and adds the symmetric
+  // closing rule a broken drought needs: the breaker's championship season is
+  // excluded, and a team whose season finishes after the city clinched isn't
+  // futility. Returns [{team, sport, ranges, count, isBreaker}], sorted by count.
+  // Season-Years = sum of the counts.
+  const cityDroughtTeams = (city, droughtStart, isFirstTitle, priorSport, endTitle) => {
     const cityTen = tenuresByCity[city] || {};
     const endOrd   = SPORT_CALENDAR_ORDER[endTitle.sport] || 99;
     const priorOrd = SPORT_CALENDAR_ORDER[priorSport]     || 99;
-    let total = 0;
+    const out = [];
     for (const sport in cityTen) {
       const teamOrd = SPORT_CALENDAR_ORDER[sport] || 99;
       for (const team in cityTen[sport]) {
@@ -3009,21 +3018,38 @@ async function renderDroughtBreakers() {
         if (TEAM_MARKET_ENTRY[team] != null && TEAM_MARKET_ENTRY[team] < ten.first) {
           for (let y = TEAM_MARKET_ENTRY[team]; y < ten.first; y++) played.add(y);
         }
-        // Lower bound: count from the year after the prior title for teams
-        // whose season completes at/before that title's slot; from the prior
-        // title year itself for teams finishing later. First title: from
-        // market start.
+        const isBreaker = (team === endTitle.team && sport === endTitle.sport);
         const lo = isFirstTitle ? droughtStart : (teamOrd > priorOrd ? droughtStart : droughtStart + 1);
+        const inDrought = [];
         for (const y of played) {
           if (y < lo || y > endTitle.year) continue;
-          if (y === endTitle.year && team === endTitle.team && sport === endTitle.sport) continue; // winner's title season
-          if (y === endTitle.year && teamOrd > endOrd) continue; // season finished after the city's title -> not futility
-          total++;
+          if (isBreaker && y === endTitle.year) continue;        // winner's title season
+          if (y === endTitle.year && teamOrd > endOrd) continue; // finished after the city's title -> not futility
+          inDrought.push(y);
         }
+        if (inDrought.length === 0) continue;
+        inDrought.sort((a, b) => a - b);
+        // Gap-aware ranges (>2-year gap splits into '/'-joined segments;
+        // 1-year strike/lockout gaps absorbed), same as the active view.
+        const ranges = [];
+        let s = inDrought[0], p = inDrought[0];
+        for (let i = 1; i < inDrought.length; i++) {
+          if (inDrought[i] - p > 2) { ranges.push({ first: s, last: p }); s = inDrought[i]; }
+          p = inDrought[i];
+        }
+        ranges.push({ first: s, last: p });
+        out.push({ team, sport, ranges, count: inDrought.length, isBreaker });
       }
     }
-    return total;
+    out.sort((a, b) => b.count - a.count);
+    return out;
   };
+
+  // Current roster per city, to fade chips for teams that have since left.
+  const currentTeamKeysByCity = {};
+  for (const m of data.current) {
+    currentTeamKeysByCity[m.name] = new Set((m.teams || []).map(t => `${t.sport}__${t.team}`));
+  }
 
   // For each title in each city's timeline, the drought it ended.
   // DATA_FLOOR = first season-year our snapshots observe. Two guards keep
@@ -3052,9 +3078,10 @@ async function renderDroughtBreakers() {
       if (droughtStart == null || droughtStart === Infinity) continue;
       const calendarYears = cur.year - droughtStart;
       if (calendarYears <= 0) continue;            // guard against same-year / bad data
-      const seasonYears = seasonYearsFor(city, droughtStart, isFirst, prior ? prior.sport : null, cur);
+      const teams = cityDroughtTeams(city, droughtStart, isFirst, prior ? prior.sport : null, cur);
+      const seasonYears = teams.reduce((sum, t) => sum + t.count, 0);
       if (droughtStart < DATA_FLOOR) anyPre1980 = true;
-      records.push({ city, breaker: cur, prior, isFirst, droughtStart, calendarYears, seasonYears });
+      records.push({ city, breaker: cur, prior, isFirst, droughtStart, calendarYears, seasonYears, teams });
     }
   }
   records.sort((a, b) => (b.seasonYears - a.seasonYears) || (b.calendarYears - a.calendarYears));
@@ -3062,6 +3089,17 @@ async function renderDroughtBreakers() {
   const top = records.slice(0, TOP_N);
 
   const yy = (n) => `'${String(n).slice(-2)}`;
+  const rangeStr = (ranges) => ranges
+    .map(rg => rg.first === rg.last ? yy(rg.first) : `${yy(rg.first)}-${yy(rg.last)}`)
+    .join(' / ');
+  const teamChip = (t, departed) => {
+    const short = TEAM_SHORT_NAME[t.team] || t.team;
+    const classes = ['team-chip'];
+    let extra = '';
+    if (t.isBreaker)     { classes.push('win'); extra = ' 👑'; }
+    else if (departed)   { classes.push('departed'); }
+    return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr(t.ranges)}</span> ${short}${extra}<span class="z">:${t.count}</span></span>`;
+  };
   const rows = top.map((r, i) => {
     const b = r.breaker;
     const bShort = TEAM_SHORT_NAME[b.team] || b.team;
@@ -3074,12 +3112,17 @@ async function renderDroughtBreakers() {
       const note = r.prior.note ? ` <span class="champ-note">(${r.prior.note})</span>` : '';
       priorCell = `<span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note}`;
     }
+    const curKeys = currentTeamKeysByCity[r.city] || new Set();
+    const teamsCell = r.teams
+      .map(t => teamChip(t, !t.isBreaker && !curKeys.has(`${t.sport}__${t.team}`)))
+      .join('');
     const preMark = r.droughtStart < 1980 ? '<span class="champ-note" title="Season-Years for a drought beginning before 1980 is a floor; pre-1980 team tenures are only partially backfilled.">*</span>' : '';
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
       <td style="white-space:nowrap;vertical-align:middle">${breakerChip}</td>
       <td style="white-space:nowrap;vertical-align:middle">${priorCell}</td>
+      <td style="vertical-align:middle">${teamsCell}</td>
       <td class="num team-years-cell">${r.calendarYears}</td>
       <td class="num total-drought-cell">${r.seasonYears}${preMark}</td>
     </tr>`;
@@ -3090,12 +3133,13 @@ async function renderDroughtBreakers() {
     : '';
 
   el.innerHTML = `
-    <table class="droughts-table">
+    <table class="droughts-table breakers">
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
         <th>Title That Ended It</th>
         <th>Drought Since</th>
+        <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
         <th class="num drought-stack">Years</th>
         <th class="num drought-stack">Season-Years<br>ended</th>
       </tr></thead>
