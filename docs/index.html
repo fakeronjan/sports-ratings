@@ -717,8 +717,8 @@
         <button class="active" data-dscope="city" role="tab">By City</button>
         <button data-dscope="team" role="tab">By Team</button>
       </div>
-      <p class="data-note" id="drought-broken-note-city">The flip side: every championship that ended a city-wide title drought across all sports, ranked by Season-Years (the total seasons of futility across all the city's teams during the drought) · Years counts calendar years since the city's previous title</p>
-      <p class="data-note" id="drought-broken-note-team" style="display:none">Every championship that ended a single franchise's title drought, ranked by years since that team's previous title. Current-market only: a relocated team's titles in a prior city don't carry (so the LA Rams' drought starts from their last LA title, not St. Louis). First-ever-title droughts (since founding) are not yet included.</p>
+      <p class="data-note" id="drought-broken-note-city">Years counts the calendar years from a city's previous championship in any sport to the title that ended the drought · Season-Years counts the number of seasons across all the city's teams during that drought</p>
+      <p class="data-note" id="drought-broken-note-team" style="display:none">Years counts the time since a team's previous title, or for a first-ever title since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry (the LA Rams' drought starts from their last LA title, not St. Louis)</p>
     </div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
@@ -1741,6 +1741,49 @@ const TEAM_PRE1980_TITLES = {
   'NFL__Dallas Cowboys':        [1971,1977],
   'NFL__Miami Dolphins':        [1972,1973],
   'NFL__Pittsburgh Steelers':   [1974,1975,1978,1979],
+};
+
+// Year a franchise began major-league play IN ITS CURRENT MARKET, for the
+// Team view's first-ever-title (since-founding) droughts. Only needed for
+// teams founded/arrived BEFORE the 1980 data floor; post-1980 arrivals derive
+// their start from the snapshots. Current-market only (relocations use the
+// arrival year, e.g. SF Giants 1958, Rangers 1972, Braves 1966). Predecessor
+// major leagues count toward the start (AAFC 49ers 1946; ABA Nuggets 1967,
+// Spurs 1973; WHA Oilers 1972) - flagged for the user, easy to switch to
+// merger years if preferred. Keyed `${sport}__${current-franchise name}`.
+const TEAM_FOUNDED = {
+  // NBA
+  'NBA__Cleveland Cavaliers': 1970,
+  'NBA__Detroit Pistons':     1957,   // arrived Detroit from Fort Wayne
+  'NBA__Chicago Bulls':       1966,
+  'NBA__Houston Rockets':     1971,   // arrived Houston from San Diego
+  'NBA__Denver Nuggets':      1967,   // ABA
+  'NBA__San Antonio Spurs':   1973,   // arrived San Antonio (ABA)
+  // MLB
+  'MLB__Philadelphia Phillies': 1883,
+  'MLB__Kansas City Royals':    1969,
+  'MLB__Los Angeles Angels':    1961,
+  'MLB__Houston Astros':        1962,
+  'MLB__Texas Rangers':         1972, // arrived Texas (ex-Senators)
+  'MLB__Toronto Blue Jays':     1977,
+  'MLB__Atlanta Braves':        1966, // arrived Atlanta
+  'MLB__Minnesota Twins':       1961, // arrived Minnesota (ex-Senators)
+  'MLB__San Francisco Giants':  1958, // arrived SF from New York
+  // NHL
+  'NHL__New York Islanders':   1972,
+  'NHL__Edmonton Oilers':      1972,  // WHA
+  'NHL__Calgary Flames':       1980,  // arrived Calgary from Atlanta
+  'NHL__Pittsburgh Penguins':  1967,
+  'NHL__Los Angeles Kings':    1967,
+  'NHL__St. Louis Blues':      1967,
+  'NHL__Washington Capitals':  1974,
+  // NFL
+  'NFL__San Francisco 49ers':    1946, // AAFC
+  'NFL__New England Patriots':   1960, // Boston Patriots (AFL)
+  'NFL__Denver Broncos':         1960, // AFL
+  'NFL__New Orleans Saints':     1967,
+  'NFL__Seattle Seahawks':       1976,
+  'NFL__Tampa Bay Buccaneers':   1976,
 };
 
 // Short team names for chip display. Since the city is already established
@@ -3181,7 +3224,7 @@ async function renderDroughtBreakers() {
       records.push({ city, breaker: cur, prior, isFirst, droughtStart, calendarYears, seasonYears, teams });
     }
   }
-  records.sort((a, b) => (b.seasonYears - a.seasonYears) || (b.calendarYears - a.calendarYears));
+  records.sort((a, b) => (b.calendarYears - a.calendarYears) || (b.seasonYears - a.seasonYears));
   const TOP_N = 30;
   const top = records.slice(0, TOP_N);
 
@@ -3211,7 +3254,7 @@ async function renderDroughtBreakers() {
     } else {
       const pShort = TEAM_SHORT_NAME[r.prior.team] || r.prior.team;
       const note = r.prior.note ? `, ${r.prior.note}` : '';
-      sinceLine = `<div class="champ-line">(${r.prior.sport} ${r.prior.year} ${pShort}${note})</div>`;
+      sinceLine = `<div class="champ-line">(<span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note})</div>`;
     }
     const curKeys = currentTeamKeysByCity[r.city] || new Set();
     const teamsCell = r.teams
@@ -3223,8 +3266,8 @@ async function renderDroughtBreakers() {
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
       <td style="white-space:nowrap;vertical-align:top">${titleLine}${sinceLine}</td>
       <td style="vertical-align:middle">${teamsCell}</td>
-      <td class="num team-years-cell">${r.calendarYears}</td>
-      <td class="num total-drought-cell">${r.seasonYears}${preMark}</td>
+      <td class="num total-drought-cell">${r.calendarYears}</td>
+      <td class="num team-years-cell">${r.seasonYears}${preMark}</td>
     </tr>`;
   }).join('');
 
@@ -3244,7 +3287,7 @@ async function renderDroughtBreakers() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>${footnote}
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest droughts ended, ranked by Season-Years.</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest droughts ended, ranked by Years.</p>
   `;
   attachCityLinks();
 }
@@ -3266,40 +3309,53 @@ async function renderTeamDroughtBreakers() {
   if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
 
   const DATA_FLOOR = 1980;
-  // Collect title season-years + market per franchise key (`sport__name`).
-  const titles = {};   // key -> Set(year)
-  const meta   = {};    // key -> {sport, name, market}
+  // Per franchise key (`sport__name`): title season-years, earliest appearance
+  // (for since-founding droughts), and display meta.
+  const titles = {};      // key -> Set(year)
+  const firstSeen = {};   // key -> earliest season-year observed
+  const meta = {};        // key -> {sport, name}
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
-        if (t.finalsStatus !== 2 || t.seasonYear == null) continue;
+        if (t.seasonYear == null) continue;
         const name = franchiseName(t.team);
         const key = `${t.sport}__${name}`;
-        (titles[key] = titles[key] || new Set()).add(t.seasonYear);
-        if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
+        if (!meta[key]) meta[key] = { sport: t.sport, name };
+        if (firstSeen[key] == null || t.seasonYear < firstSeen[key]) firstSeen[key] = t.seasonYear;
+        if (t.finalsStatus === 2) (titles[key] = titles[key] || new Set()).add(t.seasonYear);
       }
     }
   }
-  // Merge the pre-1980 backfill.
+  // Merge the pre-1980 title backfill.
   for (const key in TEAM_PRE1980_TITLES) {
     const set = (titles[key] = titles[key] || new Set());
     for (const y of TEAM_PRE1980_TITLES[key]) set.add(y);
     if (!meta[key]) {
       const sep = key.indexOf('__');
-      meta[key] = { sport: key.slice(0, sep), name: key.slice(sep + 2), market: null };
+      meta[key] = { sport: key.slice(0, sep), name: key.slice(sep + 2) };
     }
   }
 
-  // One breaker row per observed (>= floor) title that ended a prior-title drought.
+  // One row per observed (>= floor) title that ended a drought - since the
+  // franchise's previous title, or for a first-ever title since it began in its
+  // current market. A first title is included only when the start is
+  // trustworthy: a known TEAM_FOUNDED year, or a post-floor arrival the
+  // snapshots fully observe. Pre-floor teams with no founding entry are skipped.
   const records = [];
   for (const key in titles) {
     const yrs = [...titles[key]].sort((a, b) => a - b);
     for (let i = 0; i < yrs.length; i++) {
       const y = yrs[i];
       if (y < DATA_FLOOR) continue;          // breaker must be observed
-      if (i === 0) continue;                 // first-ever title -> needs founding year (omitted)
-      const prior = yrs[i - 1];
-      records.push({ ...meta[key], year: y, prior, drought: y - prior });
+      if (i > 0) {
+        records.push({ ...meta[key], year: y, since: yrs[i - 1], isFirst: false, drought: y - yrs[i - 1] });
+      } else {
+        let founded = null;
+        if (TEAM_FOUNDED[key] != null) founded = TEAM_FOUNDED[key];
+        else if (firstSeen[key] != null && firstSeen[key] > DATA_FLOOR) founded = firstSeen[key];
+        if (founded == null) continue;       // pre-floor, founding unknown -> skip
+        records.push({ ...meta[key], year: y, since: founded, isFirst: true, drought: y - founded });
+      }
     }
   }
   records.sort((a, b) => (b.drought - a.drought) || (b.year - a.year));
@@ -3307,11 +3363,14 @@ async function renderTeamDroughtBreakers() {
   const top = records.slice(0, TOP_N);
 
   const rows = top.map((r, i) => {
+    const sinceCell = r.isFirst
+      ? `<span class="champ-note">first title · since ${r.since}</span>`
+      : `<span class="champ-note">since ${r.since}</span>`;
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell" style="white-space:nowrap"><span class="last-champ-sport">${r.sport}</span>${r.name}</td>
       <td style="white-space:nowrap;vertical-align:middle"><span class="team-chip win">${r.year} 👑</span></td>
-      <td style="white-space:nowrap;vertical-align:middle"><span class="champ-note">since ${r.prior}</span></td>
+      <td style="white-space:nowrap;vertical-align:middle">${sinceCell}</td>
       <td class="num total-drought-cell">${r.drought}</td>
     </tr>`;
   }).join('');
@@ -3327,7 +3386,7 @@ async function renderTeamDroughtBreakers() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title-to-title droughts ended, ranked by years. First-ever-title droughts (e.g. Phillies 1980, Rangers 2023) pending a founding-year pass.</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title droughts ended, ranked by years. Drought-start is the team's previous title, or for a first-ever title the year it began in its current market (counting AFL / ABA / WHA / AAFC predecessor leagues).</p>
   `;
 }
 
