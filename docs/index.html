@@ -188,6 +188,31 @@
     min-width: 92px;
   }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
+  /* Active / Drought-Breakers mode toggle (City Droughts tab). */
+  .drought-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .drought-toggle button {
+    background: #f0f0f0;
+    border: 1px solid #e3e3e0;
+    border-radius: 16px;
+    padding: 5px 15px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #777;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .drought-toggle button:hover { color: #1a6b8a; }
+  .drought-toggle button.active {
+    background: #1a6b8a;
+    border-color: #1a6b8a;
+    color: #fff;
+  }
   /* Drop the chip-pill background on non-medal chips so the 🥈 silver and
      👑 gold backgrounds stand out against text-style siblings. */
   .droughts-table .team-chip:not(.win):not(.runner):not(.departed) {
@@ -679,8 +704,17 @@
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-droughts-view" class="view tab">
-    <p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market since that championship</p>
-    <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>
+    <div class="drought-toggle" role="tablist">
+      <button class="active" data-dmode="active" role="tab">Active Droughts</button>
+      <button data-dmode="broken" role="tab">Drought Breakers</button>
+    </div>
+    <div id="drought-active-notes">
+      <p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market since that championship</p>
+      <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>
+    </div>
+    <div id="drought-broken-notes" style="display:none">
+      <p class="data-note">The flip side: every championship that ended a city-wide title drought across all sports, ranked by Season-Years (the total seasons of futility across all the city's teams during the drought) · Years counts calendar years since the city's previous title</p>
+    </div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -1246,6 +1280,21 @@ document.querySelectorAll('nav.view-tabs button').forEach(btn => {
       cityRendered[target] = true;
       cityRenderers[target]();
     }
+  });
+});
+
+// City Droughts: Active <-> Drought Breakers mode toggle. The main tab's
+// first activation lazy-renders Active; these buttons swap the notes block
+// and re-render the chosen mode (both renderers are idempotent + read the
+// cached cityData via ensureCityData).
+document.querySelectorAll('.drought-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.dmode;
+    document.querySelectorAll('.drought-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('drought-active-notes').style.display = mode === 'active' ? '' : 'none';
+    document.getElementById('drought-broken-notes').style.display = mode === 'broken' ? '' : 'none';
+    if (mode === 'active') renderCityDroughts();
+    else renderDroughtBreakers();
   });
 });
 
@@ -2865,6 +2914,194 @@ async function renderCityDroughts() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
+  `;
+  attachCityLinks();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Drought Breakers (the flip side of City Droughts)
+// For each city, walk its championship timeline and, for every title, measure
+// the city-wide drought that title ENDED: the gap back to the city's previous
+// championship in any sport (or to when the market first fielded a team, for
+// a city's first-ever title). Ranked by Season-Years - the cumulative seasons
+// of futility across ALL the city's teams during the drought - which is what
+// makes Cleveland 2016 (Cavs + Browns + Indians all dry for ~52 years) tower
+// over a single-team market that waited the same calendar span.
+//
+// Reuses the same market-attributed data + pre-1980 override tables as the
+// active City Droughts view; the only change is the drought END is each
+// historical title moment instead of "today". Season-Years for droughts that
+// begin before 1980 are a floor (pre-1980 team tenures are only backfilled for
+// teams in TEAM_MARKET_ENTRY); a footnote flags that.
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderDroughtBreakers() {
+  const el = document.getElementById('city-droughts-content');
+  el.innerHTML = '<p class="loading">Loading...</p>';
+  const data = await ensureCityData();
+  if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
+
+  // Walk snapshots -> per-city tenures + the city's championship timeline.
+  const tenuresByCity = {};
+  const cityTitles = {};   // city -> [{year, team, sport, note?}]
+  const seenTitle = {};    // dedupe finalsStatus=2 carryover across snapshots
+  for (const snap of data.snapshotMetros) {
+    for (const m of snap.metros) {
+      for (const t of m.teams) {
+        const city = m.name, sport = t.sport, team = t.team, sy = t.seasonYear;
+        if (sy == null) continue;
+        if (!tenuresByCity[city]) tenuresByCity[city] = {};
+        if (!tenuresByCity[city][sport]) tenuresByCity[city][sport] = {};
+        const cur = tenuresByCity[city][sport][team];
+        if (!cur) tenuresByCity[city][sport][team] = { first: sy, last: sy, years: new Set([sy]) };
+        else { if (sy < cur.first) cur.first = sy; if (sy > cur.last) cur.last = sy; cur.years.add(sy); }
+        if (t.finalsStatus === 2) {
+          const k = `${city}__${sport}__${team}__${sy}`;
+          if (!seenTitle[k]) {
+            seenTitle[k] = true;
+            (cityTitles[city] = cityTitles[city] || []).push({ year: sy, team, sport });
+          }
+        }
+      }
+    }
+  }
+  // Backfill pre-1980 city titles (most recent per city/sport) so a city's
+  // first data-window title measures its drought back to the real prior title.
+  for (const key in PRE_1980_LAST_TITLE) {
+    const sepIdx = key.lastIndexOf('__');
+    const city = key.slice(0, sepIdx), sport = key.slice(sepIdx + 2);
+    const [yr, teamName, note] = PRE_1980_LAST_TITLE[key];
+    (cityTitles[city] = cityTitles[city] || []).push({ year: yr, team: teamName, sport, note });
+  }
+
+  // Market-start per city (earliest year it fielded any team), used as the
+  // drought origin for a city's first-ever title.
+  const marketStartByCity = {};
+  for (const city in tenuresByCity) {
+    let earliest = Infinity;
+    for (const sport in tenuresByCity[city]) {
+      const override = PRE_1980_MARKET_START[`${city}__${sport}`];
+      for (const team in tenuresByCity[city][sport]) {
+        let f = tenuresByCity[city][sport][team].first;
+        if (TEAM_MARKET_ENTRY[team] != null && TEAM_MARKET_ENTRY[team] < f) f = TEAM_MARKET_ENTRY[team];
+        if (f < earliest) earliest = f;
+      }
+      if (override != null && override < earliest) earliest = override;
+    }
+    marketStartByCity[city] = earliest;
+  }
+
+  const calKey = (y, sport) => y * 100 + (SPORT_CALENDAR_ORDER[sport] || 99);
+
+  // Season-Years of futility for one city across (droughtStart, titleYear],
+  // mirroring the active view's calendar-order nuance: a team's title-year
+  // season counts as futility only if its sport's playoffs finish before the
+  // drought-ending title. The ending team's own championship season is excluded.
+  const seasonYearsFor = (city, droughtStart, isFirstTitle, priorSport, endTitle) => {
+    const cityTen = tenuresByCity[city] || {};
+    const endOrd   = SPORT_CALENDAR_ORDER[endTitle.sport] || 99;
+    const priorOrd = SPORT_CALENDAR_ORDER[priorSport]     || 99;
+    let total = 0;
+    for (const sport in cityTen) {
+      const teamOrd = SPORT_CALENDAR_ORDER[sport] || 99;
+      for (const team in cityTen[sport]) {
+        const ten = cityTen[sport][team];
+        const played = new Set(ten.years);
+        if (TEAM_MARKET_ENTRY[team] != null && TEAM_MARKET_ENTRY[team] < ten.first) {
+          for (let y = TEAM_MARKET_ENTRY[team]; y < ten.first; y++) played.add(y);
+        }
+        // Lower bound: count from the year after the prior title for teams
+        // whose season completes at/before that title's slot; from the prior
+        // title year itself for teams finishing later. First title: from
+        // market start.
+        const lo = isFirstTitle ? droughtStart : (teamOrd > priorOrd ? droughtStart : droughtStart + 1);
+        for (const y of played) {
+          if (y < lo || y > endTitle.year) continue;
+          if (y === endTitle.year && team === endTitle.team && sport === endTitle.sport) continue; // winner's title season
+          if (y === endTitle.year && teamOrd > endOrd) continue; // season finished after the city's title -> not futility
+          total++;
+        }
+      }
+    }
+    return total;
+  };
+
+  // For each title in each city's timeline, the drought it ended.
+  // DATA_FLOOR = first season-year our snapshots observe. Two guards keep
+  // every row trustworthy despite the city-attributed pre-1980 tables being
+  // populated only as far as the active view needed:
+  //   - the BREAKING title must be observed (>= floor); pre-1980 titles serve
+  //     only as the prior-title boundary, never as breakers (we have no roster
+  //     data to measure a drought they ended).
+  //   - a FIRST-ever-title row is only trustworthy for a fully-observed
+  //     expansion market (marketStart > floor). For a city that already
+  //     existed at the floor we can't tell "never won pre-1980" from "won but
+  //     not in our table" (e.g. LA Dodgers), so we don't claim a first title.
+  const DATA_FLOOR = 1980;
+  const records = [];
+  let anyPre1980 = false;
+  for (const city in cityTitles) {
+    const titles = cityTitles[city].slice().sort((a, b) => calKey(a.year, a.sport) - calKey(b.year, b.sport));
+    const marketStart = marketStartByCity[city];
+    for (let i = 0; i < titles.length; i++) {
+      const cur = titles[i];
+      if (cur.year < DATA_FLOOR) continue;         // breaker must be an observed title
+      const prior = i > 0 ? titles[i - 1] : null;
+      const isFirst = !prior;
+      if (isFirst && !(marketStart != null && marketStart > DATA_FLOOR)) continue; // untrustworthy "first title"
+      const droughtStart = isFirst ? marketStart : prior.year;
+      if (droughtStart == null || droughtStart === Infinity) continue;
+      const calendarYears = cur.year - droughtStart;
+      if (calendarYears <= 0) continue;            // guard against same-year / bad data
+      const seasonYears = seasonYearsFor(city, droughtStart, isFirst, prior ? prior.sport : null, cur);
+      if (droughtStart < DATA_FLOOR) anyPre1980 = true;
+      records.push({ city, breaker: cur, prior, isFirst, droughtStart, calendarYears, seasonYears });
+    }
+  }
+  records.sort((a, b) => (b.seasonYears - a.seasonYears) || (b.calendarYears - a.calendarYears));
+  const TOP_N = 30;
+  const top = records.slice(0, TOP_N);
+
+  const yy = (n) => `'${String(n).slice(-2)}`;
+  const rows = top.map((r, i) => {
+    const b = r.breaker;
+    const bShort = TEAM_SHORT_NAME[b.team] || b.team;
+    const breakerChip = `<span class="team-chip win"><span class="sport-tag">${b.sport}</span><span class="yr">${yy(b.year)}</span> ${bShort} 👑</span>`;
+    let priorCell;
+    if (r.isFirst) {
+      priorCell = `<span class="champ-note">City's first title · since ${r.droughtStart}</span>`;
+    } else {
+      const pShort = TEAM_SHORT_NAME[r.prior.team] || r.prior.team;
+      const note = r.prior.note ? ` <span class="champ-note">(${r.prior.note})</span>` : '';
+      priorCell = `<span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note}`;
+    }
+    const preMark = r.droughtStart < 1980 ? '<span class="champ-note" title="Season-Years for a drought beginning before 1980 is a floor; pre-1980 team tenures are only partially backfilled.">*</span>' : '';
+    return `<tr>
+      <td class="rank-cell">${i + 1}</td>
+      <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
+      <td style="white-space:nowrap;vertical-align:middle">${breakerChip}</td>
+      <td style="white-space:nowrap;vertical-align:middle">${priorCell}</td>
+      <td class="num team-years-cell">${r.calendarYears}</td>
+      <td class="num total-drought-cell">${r.seasonYears}${preMark}</td>
+    </tr>`;
+  }).join('');
+
+  const footnote = anyPre1980
+    ? `<p class="data-note" style="margin-top:10px"><span class="champ-note">*</span> Droughts beginning before 1980 show a Season-Years floor: pre-1980 team tenures are only partially backfilled, so the true cumulative figure is somewhat higher.</p>`
+    : '';
+
+  el.innerHTML = `
+    <table class="droughts-table">
+      <thead><tr>
+        <th class="num">Rank</th>
+        <th>City</th>
+        <th>Title That Ended It</th>
+        <th>Drought Since</th>
+        <th class="num drought-stack">Years</th>
+        <th class="num drought-stack">Season-Years<br>ended</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>${footnote}
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest droughts ended, ranked by Season-Years.</p>
   `;
   attachCityLinks();
 }
