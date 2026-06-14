@@ -3094,7 +3094,7 @@ async function renderDroughtBreakers() {
     let extra = '';
     if (t.isBreaker)     { classes.push('win'); extra = ' 👑'; }
     else if (departed)   { classes.push('departed'); }
-    return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr(t.ranges)}</span> ${short}${extra}<span class="z">:${t.count}</span></span>`;
+    return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr(t.ranges)}</span> ${short}${extra}:<span class="z">${t.count}</span></span>`;
   };
   const rows = top.map((r, i) => {
     const b = r.breaker;
@@ -3136,7 +3136,7 @@ async function renderDroughtBreakers() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Drought-Ending Title <span class="th-sub">(prior title in parens)</span></th>
+        <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(prior title in parens)</span></th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
         <th class="num drought-stack">Years</th>
         <th class="num drought-stack">Season-Years<br>ended</th>
