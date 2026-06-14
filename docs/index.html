@@ -3099,17 +3099,18 @@ async function renderDroughtBreakers() {
   const rows = top.map((r, i) => {
     const b = r.breaker;
     const bShort = TEAM_SHORT_NAME[b.team] || b.team;
-    // Narrative cell: the drought-ending title on top, the drought's origin
-    // underneath (auto-styled smaller/gray via the .champ-line + .champ-line
-    // rule, matching the active tab's stacked Last Champion column).
+    // Narrative cell: the drought-ending title on top, the prior title it
+    // ended the drought since in parentheses underneath (auto-styled
+    // smaller/gray via the .champ-line + .champ-line rule). The "since"
+    // framing lives in the column header so it isn't repeated every row.
     const titleLine = `<div class="champ-line"><span class="last-champ-sport">${b.sport}</span>${b.year} ${bShort} 👑</div>`;
     let sinceLine;
     if (r.isFirst) {
-      sinceLine = `<div class="champ-line">city's first title · since ${r.droughtStart}</div>`;
+      sinceLine = `<div class="champ-line">(first title, since ${r.droughtStart})</div>`;
     } else {
       const pShort = TEAM_SHORT_NAME[r.prior.team] || r.prior.team;
-      const note = r.prior.note ? ` <span class="champ-note">(${r.prior.note})</span>` : '';
-      sinceLine = `<div class="champ-line">ended drought since <span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note}</div>`;
+      const note = r.prior.note ? `, ${r.prior.note}` : '';
+      sinceLine = `<div class="champ-line">(${r.prior.sport} ${r.prior.year} ${pShort}${note})</div>`;
     }
     const curKeys = currentTeamKeysByCity[r.city] || new Set();
     const teamsCell = r.teams
@@ -3135,7 +3136,7 @@ async function renderDroughtBreakers() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Drought-Ending Title</th>
+        <th>Drought-Ending Title <span class="th-sub">(prior title in parens)</span></th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
         <th class="num drought-stack">Years</th>
         <th class="num drought-stack">Season-Years<br>ended</th>
