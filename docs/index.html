@@ -713,7 +713,12 @@
       <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>
     </div>
     <div id="drought-broken-notes" style="display:none">
-      <p class="data-note">The flip side: every championship that ended a city-wide title drought across all sports, ranked by Season-Years (the total seasons of futility across all the city's teams during the drought) · Years counts calendar years since the city's previous title</p>
+      <div class="drought-toggle" role="tablist" style="margin-bottom:10px">
+        <button class="active" data-dscope="city" role="tab">By City</button>
+        <button data-dscope="team" role="tab">By Team</button>
+      </div>
+      <p class="data-note" id="drought-broken-note-city">The flip side: every championship that ended a city-wide title drought across all sports, ranked by Season-Years (the total seasons of futility across all the city's teams during the drought) · Years counts calendar years since the city's previous title</p>
+      <p class="data-note" id="drought-broken-note-team" style="display:none">Every championship that ended a single franchise's title drought, ranked by years since that team's previous title. Current-market only: a relocated team's titles in a prior city don't carry (so the LA Rams' drought starts from their last LA title, not St. Louis). First-ever-title droughts (since founding) are not yet included.</p>
     </div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
@@ -1283,18 +1288,31 @@ document.querySelectorAll('nav.view-tabs button').forEach(btn => {
   });
 });
 
-// City Droughts: Active <-> Drought Breakers mode toggle. The main tab's
-// first activation lazy-renders Active; these buttons swap the notes block
-// and re-render the chosen mode (both renderers are idempotent + read the
-// cached cityData via ensureCityData).
-document.querySelectorAll('.drought-toggle button').forEach(btn => {
+// City Droughts: Active <-> Drought Breakers mode toggle, and within Breakers a
+// By City <-> By Team scope toggle. The main tab's first activation lazy-renders
+// Active; these buttons swap the notes block and re-render the chosen view (all
+// renderers are idempotent + read the cached cityData via ensureCityData).
+let droughtScope = 'city';
+function renderBrokenView() {
+  return droughtScope === 'team' ? renderTeamDroughtBreakers() : renderDroughtBreakers();
+}
+document.querySelectorAll('[data-dmode]').forEach(btn => {
   btn.addEventListener('click', () => {
     const mode = btn.dataset.dmode;
-    document.querySelectorAll('.drought-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('[data-dmode]').forEach(b => b.classList.toggle('active', b === btn));
     document.getElementById('drought-active-notes').style.display = mode === 'active' ? '' : 'none';
     document.getElementById('drought-broken-notes').style.display = mode === 'broken' ? '' : 'none';
     if (mode === 'active') renderCityDroughts();
-    else renderDroughtBreakers();
+    else renderBrokenView();
+  });
+});
+document.querySelectorAll('[data-dscope]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    droughtScope = btn.dataset.dscope;
+    document.querySelectorAll('[data-dscope]').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('drought-broken-note-city').style.display = droughtScope === 'city' ? '' : 'none';
+    document.getElementById('drought-broken-note-team').style.display = droughtScope === 'team' ? '' : 'none';
+    renderBrokenView();
   });
 });
 
@@ -1640,6 +1658,89 @@ const PRE_1980_MARKET_START = {
   'Buffalo__NHL':                              1970,  // Sabres founded
   'Vancouver__NHL':                            1970,  // Canucks founded
   'Winnipeg__NHL':                             1980,  // Original Jets first NHL season 1979-80 (data = season-end year 1980); new Jets 2011+ continue same market drought
+};
+
+// ── Team-scope Drought Breakers data ──────────────────────────────────────────
+// The live snapshots use ERA-correct team names (e.g. both "Washington Bullets"
+// and "Washington Wizards" appear over time). FRANCHISE_RENAMES collapses
+// in-place RENAMES onto the current name so a franchise's titles aren't split.
+// RELOCATIONS are deliberately NOT listed - current-market-only attribution
+// means a moved team is a separate entity (Oakland vs Las Vegas Raiders, NJ vs
+// Brooklyn Nets, Montreal Expos vs Washington Nationals all stay separate).
+const FRANCHISE_RENAMES = {
+  // NBA
+  'Washington Bullets': 'Washington Wizards',
+  'Charlotte Bobcats':  'Charlotte Hornets',
+  // MLB
+  'Cleveland Indians':  'Cleveland Guardians',
+  'Florida Marlins':    'Miami Marlins',
+  'Tampa Bay Devil Rays': 'Tampa Bay Rays',
+  // NHL
+  'Chicago Black Hawks':    'Chicago Blackhawks',
+  'Mighty Ducks of Anaheim':'Anaheim Ducks',
+  'Phoenix Coyotes':        'Arizona Coyotes',
+  // NFL
+  'Washington Redskins':       'Washington Commanders',
+  'Washington Football Team':  'Washington Commanders',
+  'Phoenix Cardinals':         'Arizona Cardinals',
+  'Tennessee Oilers':          'Tennessee Titans',
+};
+function franchiseName(name) { return FRANCHISE_RENAMES[name] || name; }
+
+// Pre-1980 championships keyed by `${sport}__${current-franchise name}`.
+// Current-market only: a relocated franchise's old-city titles are NOT here
+// (Brooklyn Dodgers, Minneapolis Lakers, Philadelphia/Oakland Athletics,
+// Baltimore Colts, Dallas Texans -> KC, Oakland Raiders, NY baseball Giants,
+// Chicago/St.Louis NFL Cardinals all belong to their old markets). Renames-in-
+// place DO carry (Bullets->Wizards, Indians->Guardians, Black Hawks->Blackhawks,
+// Arenas/St Pats->Maple Leafs, Americans->Red Sox, Redskins->Commanders,
+// Staleys->Bears). Source + reasoning: pre1980_champions_reference.md.
+// 1980+ titles come from the live snapshots; this is only the pre-1980 backfill.
+const TEAM_PRE1980_TITLES = {
+  // NBA
+  'NBA__Boston Celtics':        [1957,1959,1960,1961,1962,1963,1964,1965,1966,1968,1969,1974,1976],
+  'NBA__New York Knicks':       [1970,1973],
+  'NBA__Milwaukee Bucks':       [1971],
+  'NBA__Los Angeles Lakers':    [1972],
+  'NBA__Golden State Warriors': [1975],
+  'NBA__Portland Trail Blazers':[1977],
+  'NBA__Washington Wizards':    [1978],
+  'NBA__Philadelphia 76ers':    [1967],
+  // MLB
+  'MLB__New York Yankees':      [1923,1927,1928,1932,1936,1937,1938,1939,1941,1943,1947,1949,1950,1951,1952,1953,1956,1958,1961,1962,1977,1978],
+  'MLB__Boston Red Sox':        [1903,1912,1915,1916,1918],
+  'MLB__Chicago White Sox':     [1906,1917],
+  'MLB__Chicago Cubs':          [1907,1908],
+  'MLB__Pittsburgh Pirates':    [1909,1925,1960,1971,1979],
+  'MLB__St. Louis Cardinals':   [1926,1931,1934,1942,1944,1946,1964,1967],
+  'MLB__Detroit Tigers':        [1935,1945,1968],
+  'MLB__Cincinnati Reds':       [1919,1940,1975,1976],
+  'MLB__Cleveland Guardians':   [1920,1948],
+  'MLB__Los Angeles Dodgers':   [1959,1963,1965],
+  'MLB__Baltimore Orioles':     [1966,1970],
+  'MLB__New York Mets':         [1969],
+  // NHL
+  'NHL__Montreal Canadiens':    [1924,1930,1931,1944,1946,1953,1956,1957,1958,1959,1960,1965,1966,1968,1969,1971,1973,1976,1977,1978,1979],
+  'NHL__Toronto Maple Leafs':   [1918,1922,1932,1942,1945,1947,1948,1949,1951,1962,1963,1964,1967],
+  'NHL__Boston Bruins':         [1929,1939,1941,1970,1972],
+  'NHL__New York Rangers':      [1928,1933,1940],
+  'NHL__Detroit Red Wings':     [1936,1937,1943,1950,1952,1954,1955],
+  'NHL__Chicago Blackhawks':    [1934,1938,1961],
+  'NHL__Philadelphia Flyers':   [1974,1975],
+  // NFL (season years)
+  'NFL__Green Bay Packers':     [1929,1930,1931,1936,1939,1944,1961,1962,1965,1966,1967],
+  'NFL__Chicago Bears':         [1921,1932,1933,1940,1941,1943,1946,1963],
+  'NFL__New York Giants':       [1927,1934,1938,1956],
+  'NFL__Detroit Lions':         [1935,1952,1953,1957],
+  'NFL__Washington Commanders': [1937,1942],
+  'NFL__Philadelphia Eagles':   [1948,1949,1960],
+  'NFL__Cleveland Browns':      [1950,1954,1955,1964],
+  'NFL__Los Angeles Rams':      [1951],
+  'NFL__Kansas City Chiefs':    [1969],
+  'NFL__New York Jets':         [1968],
+  'NFL__Dallas Cowboys':        [1971,1977],
+  'NFL__Miami Dolphins':        [1972,1973],
+  'NFL__Pittsburgh Steelers':   [1974,1975,1978,1979],
 };
 
 // Short team names for chip display. Since the city is already established
@@ -3146,6 +3247,88 @@ async function renderDroughtBreakers() {
     <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest droughts ended, ranked by Season-Years.</p>
   `;
   attachCityLinks();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Drought Breakers, By Team
+// Per-franchise version: for each team, walk its title timeline (1980+ from the
+// live snapshots, plus the pre-1980 backfill) and, for every observed title,
+// measure the drought it ended = years since that franchise's previous title.
+// Current-market only: ERA names are collapsed across in-place renames
+// (franchiseName) but relocations stay separate, so a moved team's prior-city
+// titles don't count. First-ever-title (since-founding) droughts are omitted
+// pending a founding-year pass.
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderTeamDroughtBreakers() {
+  const el = document.getElementById('city-droughts-content');
+  el.innerHTML = '<p class="loading">Loading...</p>';
+  const data = await ensureCityData();
+  if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
+
+  const DATA_FLOOR = 1980;
+  // Collect title season-years + market per franchise key (`sport__name`).
+  const titles = {};   // key -> Set(year)
+  const meta   = {};    // key -> {sport, name, market}
+  for (const snap of data.snapshotMetros) {
+    for (const m of snap.metros) {
+      for (const t of m.teams) {
+        if (t.finalsStatus !== 2 || t.seasonYear == null) continue;
+        const name = franchiseName(t.team);
+        const key = `${t.sport}__${name}`;
+        (titles[key] = titles[key] || new Set()).add(t.seasonYear);
+        if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
+      }
+    }
+  }
+  // Merge the pre-1980 backfill.
+  for (const key in TEAM_PRE1980_TITLES) {
+    const set = (titles[key] = titles[key] || new Set());
+    for (const y of TEAM_PRE1980_TITLES[key]) set.add(y);
+    if (!meta[key]) {
+      const sep = key.indexOf('__');
+      meta[key] = { sport: key.slice(0, sep), name: key.slice(sep + 2), market: null };
+    }
+  }
+
+  // One breaker row per observed (>= floor) title that ended a prior-title drought.
+  const records = [];
+  for (const key in titles) {
+    const yrs = [...titles[key]].sort((a, b) => a - b);
+    for (let i = 0; i < yrs.length; i++) {
+      const y = yrs[i];
+      if (y < DATA_FLOOR) continue;          // breaker must be observed
+      if (i === 0) continue;                 // first-ever title -> needs founding year (omitted)
+      const prior = yrs[i - 1];
+      records.push({ ...meta[key], year: y, prior, drought: y - prior });
+    }
+  }
+  records.sort((a, b) => (b.drought - a.drought) || (b.year - a.year));
+  const TOP_N = 30;
+  const top = records.slice(0, TOP_N);
+
+  const rows = top.map((r, i) => {
+    return `<tr>
+      <td class="rank-cell">${i + 1}</td>
+      <td class="city-cell" style="white-space:nowrap"><span class="last-champ-sport">${r.sport}</span>${r.name}</td>
+      <td style="white-space:nowrap;vertical-align:middle"><span class="team-chip win">${r.year} 👑</span></td>
+      <td style="white-space:nowrap;vertical-align:middle"><span class="champ-note">since ${r.prior}</span></td>
+      <td class="num total-drought-cell">${r.drought}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table class="droughts-table">
+      <thead><tr>
+        <th class="num">Rank</th>
+        <th>Team</th>
+        <th>Drought-Ending Title</th>
+        <th>Drought Since</th>
+        <th class="num drought-stack">Years<br>ended</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title-to-title droughts ended, ranked by years. First-ever-title droughts (e.g. Phillies 1980, Rangers 2023) pending a founding-year pass.</p>
+  `;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
