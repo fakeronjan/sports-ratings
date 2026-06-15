@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sports-ratings
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: sports-ratings
 
@@ -33,49 +33,49 @@ jobs:
       # relative to sports-ratings, so each sister-repo `path:` matches
       # the local Drive folder name the build script expects.
       - name: Checkout DUNCAN (NBA)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/duncan
           path: NBA
           sparse-checkout: docs/data/seasons
 
       - name: Checkout LOBO (WNBA)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/lobo
           path: WNBA
           sparse-checkout: docs/data/seasons
 
       - name: Checkout DILLON (NFL)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/dillon
           path: NFL
           sparse-checkout: docs/data/seasons
 
       - name: Checkout GRIFFEY (MLB)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/griffey
           path: MLB
           sparse-checkout: docs/data/seasons
 
       - name: Checkout SAKIC (NHL)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/sakic
           path: NHL
           sparse-checkout: docs/data/seasons
 
       - name: Checkout COBI (MLS)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: fakeronjan/cobi
           path: 'soccer us-mex'
           sparse-checkout: docs/data/seasons
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
