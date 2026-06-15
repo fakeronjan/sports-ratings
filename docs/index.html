@@ -987,9 +987,16 @@ async function loadWLS(repo, badgeFn, opts) {
     teams = d.teams;
     updated = d.updated;
     latestSeason = idx && idx.seasons ? idx.seasons[0] : null;
-    // MLS has no per-snapshot label here; the season is done once a club holds
-    // the MLS Cup. (Other current_standings sports are international -> stay "Current".)
-    if (repo === 'cobi') seasonComplete = (teams || []).some(t => t.mls_cup_finish === 'Champion');
+    // No per-snapshot label here, so use the season-ending trophy: MLS is done
+    // once a club holds the MLS Cup; the European season ends at the Champions
+    // League final - which matches ZIDANE's own season_is_complete gate (anchored
+    // to the CL Final date). Caveat: a COVID-style season can defer a domestic
+    // final past the CL final (2019-20 Copa del Rey -> Apr 2021), which would read
+    // "Final" early - but the card only shows the CURRENT season, so historical
+    // anomalies never surface here. Men Intl national-team sports have no season
+    // boundary -> they stay "Current".
+    if (repo === 'cobi')        seasonComplete = (teams || []).some(t => t.mls_cup_finish === 'Champion');
+    else if (repo === 'zidane') seasonComplete = (teams || []).some(t => t.cl_finish === 'Champion');
   }
   const seasonName = (SEASON_FMT[repo] && latestSeason != null)
     ? SEASON_FMT[repo](latestSeason)
