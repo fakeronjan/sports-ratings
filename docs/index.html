@@ -3427,7 +3427,7 @@ async function renderTeamDroughtBreakers() {
         if (t.seasonYear == null) continue;
         const name = franchiseName(t.team);
         const key = `${t.sport}__${name}`;
-        if (!meta[key]) meta[key] = { sport: t.sport, name };
+        if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
         if (firstSeen[key] == null || t.seasonYear < firstSeen[key]) firstSeen[key] = t.seasonYear;
         if (t.finalsStatus === 2) (titles[key] = titles[key] || new Set()).add(t.seasonYear);
       }
@@ -3439,7 +3439,8 @@ async function renderTeamDroughtBreakers() {
     for (const y of TEAM_PRE1980_TITLES[key]) set.add(y);
     if (!meta[key]) {
       const sep = key.indexOf('__');
-      meta[key] = { sport: key.slice(0, sep), name: key.slice(sep + 2) };
+      const nm = key.slice(sep + 2);
+      meta[key] = { sport: key.slice(0, sep), name: nm, market: TEAM_TO_METRO[nm] || null };
     }
   }
 
@@ -3475,9 +3476,12 @@ async function renderTeamDroughtBreakers() {
     // Drought Detail = the same team-chip format the By City "Teams" column
     // uses, for this one team: sport tag, the drought span, name, 👑.
     const detail = `<span class="team-chip win"><span class="sport-tag">${r.sport}</span><span class="yr">${r.since}-${r.year}</span> ${short} 👑</span>`;
+    const cityCell = r.market
+      ? `<td class="city-cell linked" data-city-link="${r.market}" style="white-space:nowrap">${r.market}</td>`
+      : `<td class="city-cell" style="white-space:nowrap">-</td>`;
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
-      <td class="city-cell" style="white-space:nowrap"><span class="last-champ-sport">${r.sport}</span>${r.name}</td>
+      ${cityCell}
       <td style="white-space:nowrap;vertical-align:top">
         <div class="champ-line">${r.year} 👑</div>
         <div class="champ-line">${sinceLine}</div>
@@ -3491,7 +3495,7 @@ async function renderTeamDroughtBreakers() {
     <table class="droughts-table">
       <thead><tr>
         <th class="num">Rank</th>
-        <th>Team</th>
+        <th>City</th>
         <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(previous title in parens)</span></th>
         <th>Drought Detail</th>
         <th class="num drought-stack">Years<br>ended</th>
@@ -3500,6 +3504,7 @@ async function renderTeamDroughtBreakers() {
     </table>
     <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title droughts ended, ranked by years. Drought-start is the team's previous title, or for a first-ever title the year it began in its current market (counting AFL / ABA / WHA / AAFC predecessor leagues).</p>
   `;
+  attachCityLinks();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
