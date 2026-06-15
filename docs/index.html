@@ -3531,7 +3531,12 @@ async function renderTeamDroughtBreakers() {
 
   const rows = top.map((r, i) => {
     const short = TEAM_SHORT_NAME[r.name] || r.name;
-    const sinceLine = r.isFirst ? `(first title · since ${r.since})` : `(since ${r.since})`;
+    // Match the City view: league pill + year + team on the title line, with
+    // the previous title (same team) in the same pill format underneath.
+    const titleLine = `<span class="last-champ-sport">${r.sport}</span>${r.year} ${short} 👑`;
+    const sinceLine = r.isFirst
+      ? `(first title · since ${r.since})`
+      : `(<span class="last-champ-sport">${r.sport}</span>${r.since} ${short})`;
     // Drought Detail = the By City "Teams" chip format for this one team:
     // sport tag, the gap-aware drought span (splits on relocation / lockout
     // gaps, same as the City view), name, 👑.
@@ -3549,7 +3554,7 @@ async function renderTeamDroughtBreakers() {
       <td class="rank-cell">${i + 1}</td>
       ${cityCell}
       <td style="white-space:nowrap;vertical-align:top">
-        <div class="champ-line">${r.year} 👑</div>
+        <div class="champ-line">${titleLine}</div>
         <div class="champ-line">${sinceLine}</div>
       </td>
       <td style="vertical-align:middle">${detail}</td>
