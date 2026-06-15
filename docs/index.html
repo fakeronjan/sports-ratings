@@ -937,12 +937,12 @@ const SEASON_FMT = {
   salaam: s => `${s} season`,                              // CFB is single-year
   zidane: s => `${s} season`,                              // already "YYYY-YY"
   cobi:   s => `${s} season`,                              // MLS = calendar year
-  messi:  s => `${s} season`,                              // year of latest competition
   griffey: s => `${s} season`,                             // MLB = calendar year
-  carmelo: s => `${s} season`,                             // intl basketball = calendar year
-  ichiro:  s => `${s} season`,                             // intl baseball = calendar year
-  forsberg: s => `${s} season`,                            // intl hockey = calendar year
   sakic:  s => `${s - 1}-${String(s).slice(-2)} season`,   // NHL spans two calendar years
+  // The Men Intl national-team sports (CARMELO/MESSI/ICHIRO/FORSBERG) are
+  // deliberately absent: there is no real "season" in international play (it is a
+  // rolling calendar of tournaments + friendlies), so their cards show just the
+  // section label with no ": YYYY season" suffix.
 };
 
 // Has the record actually got games in it? Empty / dashes / "0-0" => no.
