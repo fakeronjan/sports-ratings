@@ -3307,18 +3307,17 @@ async function renderDroughtBreakers() {
           p = inDrought[i];
         }
         ranges.push({ first: s, last: p });
-        out.push({ team, sport, ranges, count: inDrought.length, isBreaker });
+        // "Departed" = gone from the market AT THE TIME the drought broke (their
+        // last season predates the breaking title), NOT whether they exist today.
+        // So the 2016 Cavs row keeps the Indians solid (active in 2016, only
+        // renamed Guardians in 2022) while fading the Rockers (folded 2003).
+        const departed = ten.last < endTitle.year;
+        out.push({ team, sport, ranges, count: inDrought.length, isBreaker, departed });
       }
     }
     out.sort((a, b) => b.count - a.count);
     return out;
   };
-
-  // Current roster per city, to fade chips for teams that have since left.
-  const currentTeamKeysByCity = {};
-  for (const m of data.current) {
-    currentTeamKeysByCity[m.name] = new Set((m.teams || []).map(t => `${t.sport}__${t.team}`));
-  }
 
   // For each title in each city's timeline, the drought it ended.
   // DATA_FLOOR = first season-year our snapshots observe. Two guards keep
@@ -3384,9 +3383,8 @@ async function renderDroughtBreakers() {
       const note = r.prior.note ? `, ${r.prior.note}` : '';
       sinceLine = `<div class="champ-line">(<span class="last-champ-sport">${r.prior.sport}</span>${r.prior.year} ${pShort}${note})</div>`;
     }
-    const curKeys = currentTeamKeysByCity[r.city] || new Set();
     const teamsCell = r.teams
-      .map(t => teamChip(t, !t.isBreaker && !curKeys.has(`${t.sport}__${t.team}`)))
+      .map(t => teamChip(t, !t.isBreaker && t.departed))
       .join('');
     const preMark = r.droughtStart < 1980 ? '<span class="champ-note" title="Season-Years for a drought beginning before 1980 is a floor; pre-1980 team tenures are only partially backfilled.">*</span>' : '';
     return `<tr>
