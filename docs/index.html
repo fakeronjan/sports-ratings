@@ -3525,9 +3525,9 @@ async function renderTeamDroughtBreakers() {
       const ranges = []; let s = years[0], p = years[0];
       for (let i = 1; i < years.length; i++) { if (years[i] - p > 2) { ranges.push({ first: s, last: p }); s = years[i]; } p = years[i]; }
       ranges.push({ first: s, last: p });
-      chips.push({ raw, ranges, count: years.length, firstYear: years[0] });
+      chips.push({ raw, ranges, count: years.length, lastYear: years[years.length - 1] });
     }
-    chips.sort((a, b) => a.firstYear - b.firstYear);
+    chips.sort((a, b) => b.lastYear - a.lastYear);   // reverse-chronological (current era first)
     return chips;
   };
   const detailFor = (key, since, year) => {
@@ -3559,7 +3559,9 @@ async function renderTeamDroughtBreakers() {
         since = founded; isFirst = true;
       }
       const d = detailFor(key, since, y);
-      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, gap: d.gap, chips: eraChips(key, d.F), titleEra: eraNameAt(key, y), priorEra: isFirst ? null : eraNameAt(key, since) });
+      const titleEra = eraNameAt(key, y);
+      const chips = eraChips(key, d.F).map(c => ({ ...c, isBreaker: c.raw === titleEra }));
+      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, gap: d.gap, chips, titleEra, priorEra: isFirst ? null : eraNameAt(key, since) });
     }
   }
   records.sort((a, b) => (b.drought - a.drought) || (b.year - a.year));
@@ -3579,7 +3581,8 @@ async function renderTeamDroughtBreakers() {
     // Teams column, so era-correct names show across renames.
     const detail = r.chips.map(c => {
       const segShort = TEAM_SHORT_NAME[c.raw] || c.raw;
-      return `<span class="team-chip breaker"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
+      const cls = c.isBreaker ? 'team-chip breaker' : 'team-chip departed';   // only the drought-ending era is highlighted; older era names fade
+      return `<span class="${cls}"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
     }).join('');
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
@@ -3686,9 +3689,9 @@ async function renderTeamActiveDroughts() {
       let s = years[0], p = years[0];
       for (let i = 1; i < years.length; i++) { if (years[i] - p > 2) { ranges.push({ first: s, last: p }); s = years[i]; } p = years[i]; }
       ranges.push({ first: s, last: p });
-      chips.push({ raw, ranges, count: years.length, firstYear: years[0] });
+      chips.push({ raw, ranges, count: years.length, lastYear: years[years.length - 1] });
     }
-    chips.sort((a, b) => a.firstYear - b.firstYear);
+    chips.sort((a, b) => b.lastYear - a.lastYear);   // reverse-chronological (current era first)
     return chips;
   };
 
@@ -3719,7 +3722,8 @@ async function renderTeamActiveDroughts() {
     if (F.length === 0) continue;             // won the latest season -> no active drought
     const calendar = present - lo + 1;
     const titleEra = everWon ? eraNameAt(key, lastTitle) : null;
-    records.push({ sport, name, market, everWon, lastTitle, titleEra, since, drought: F.length, gap: calendar - F.length, chips: eraChips(key, F) });
+    const chips = eraChips(key, F).map(c => ({ ...c, defunct: c.lastYear < present }));   // old era names fade
+    records.push({ sport, name, market, everWon, lastTitle, titleEra, since, drought: F.length, gap: calendar - F.length, chips });
   }
   records.sort((a, b) => (b.drought - a.drought) || (b.gap - a.gap));
   const TOP_N = 50;
@@ -3733,7 +3737,8 @@ async function renderTeamActiveDroughts() {
       : `<div class="champ-line" style="color:#888">Never won · since ${r.since}</div>`;
     const detail = r.chips.map(c => {
       const segShort = TEAM_SHORT_NAME[c.raw] || c.raw;
-      return `<span class="team-chip"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
+      const cls = c.defunct ? 'team-chip departed' : 'team-chip';   // fade retired era names, like By City
+      return `<span class="${cls}"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
     }).join('');
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
