@@ -3252,13 +3252,30 @@ async function renderDroughtBreakers() {
       }
     }
   }
-  // Backfill pre-1980 city titles (most recent per city/sport) so a city's
-  // first data-window title measures its drought back to the real prior title.
+  // Backfill the FULL pre-1980 city title timeline (not just the most recent),
+  // so every drought between consecutive city titles is found. PRE_1980_LAST_TITLE
+  // supplies era-correct names + departed teams (Oilers, Chargers); the complete
+  // per-current-franchise list (TEAM_PRE1980_TITLES, mapped to each team's market)
+  // fills in the rest - e.g. all the Packers' 1929-1967 titles for Green Bay,
+  // which the sparse table was missing. Deduped by (city, sport, year).
+  const seenPre = new Set();
+  const addPre = (city, sport, year, team, note) => {
+    const k = `${city}__${sport}__${year}`;
+    if (seenPre.has(k)) return;
+    seenPre.add(k);
+    (cityTitles[city] = cityTitles[city] || []).push({ year, team, sport, note });
+  };
   for (const key in PRE_1980_LAST_TITLE) {
     const sepIdx = key.lastIndexOf('__');
-    const city = key.slice(0, sepIdx), sport = key.slice(sepIdx + 2);
     const [yr, teamName, note] = PRE_1980_LAST_TITLE[key];
-    (cityTitles[city] = cityTitles[city] || []).push({ year: yr, team: teamName, sport, note });
+    addPre(key.slice(0, sepIdx), key.slice(sepIdx + 2), yr, teamName, note);
+  }
+  for (const key in TEAM_PRE1980_TITLES) {
+    const sepIdx = key.indexOf('__');
+    const sport = key.slice(0, sepIdx), name = key.slice(sepIdx + 2);
+    const market = TEAM_TO_METRO[name];
+    if (!market) continue;
+    for (const yr of TEAM_PRE1980_TITLES[key]) addPre(market, sport, yr, name, null);
   }
 
   // Market-start per city (earliest year it fielded any team), used as the
