@@ -964,7 +964,7 @@ function fmtLast(raw) {
 
 async function loadWLS(repo, badgeFn, opts) {
   opts = opts || {};
-  let teams, updated, latestSeason;
+  let teams, updated, latestSeason, seasonComplete = false;
   // seasons_index gives us the season identifier for the section label
   const idxPromise = fetchJson(`${GH}/${repo}/data/seasons_index.json`).catch(() => null);
 
@@ -976,6 +976,9 @@ async function loadWLS(repo, badgeFn, opts) {
     const snap = detail.snapshots[detail.snapshots.length - 1];
     teams = snap.teams;
     updated = (snap.date || '').slice(0, 10);
+    // Season is over once the last snapshot is the champion-crowned one - drives
+    // the "Final Top 5" vs "Current Top 5" card label for these domestic leagues.
+    seasonComplete = (snap.label || '').includes('End of playoffs');
   } else {
     const [d, idx] = await Promise.all([
       fetchJson(`${GH}/${repo}/data/current_standings.json`),
@@ -984,6 +987,9 @@ async function loadWLS(repo, badgeFn, opts) {
     teams = d.teams;
     updated = d.updated;
     latestSeason = idx && idx.seasons ? idx.seasons[0] : null;
+    // MLS has no per-snapshot label here; the season is done once a club holds
+    // the MLS Cup. (Other current_standings sports are international -> stay "Current".)
+    if (repo === 'cobi') seasonComplete = (teams || []).some(t => t.mls_cup_finish === 'Champion');
   }
   const seasonName = (SEASON_FMT[repo] && latestSeason != null)
     ? SEASON_FMT[repo](latestSeason)
@@ -1049,6 +1055,7 @@ async function loadWLS(repo, badgeFn, opts) {
     }),
     updated: updated ? `Last ${isSoccer ? 'matches' : 'games'} added: ${updated}` : '',
     seasonName,
+    seasonComplete,
   };
 }
 
@@ -1228,9 +1235,15 @@ function renderCard(card, payload, error) {
       <td class="rank">${r.rank}</td>
       ${r.cells.map((cell, i) => `<td class="${payload.columns[i].cls}">${cell}</td>`).join('')}
     </tr>`).join('');
-    const label = payload.seasonName
-      ? `${card.sectionLabel}: ${payload.seasonName}`
+    // A completed (off-season) domestic league reads "Final Top 5" instead of
+    // "Current Top 5"; seasonComplete is only ever true for the non-international
+    // season sports (set in loadWLS).
+    const sectionLabel = payload.seasonComplete
+      ? card.sectionLabel.replace(/^Current\b/, 'Final')
       : card.sectionLabel;
+    const label = payload.seasonName
+      ? `${sectionLabel}: ${payload.seasonName}`
+      : sectionLabel;
     body = `
       <div class="card-section-label">${escapeHtml(label)}</div>
       <table class="top5">${headers}<tbody>${rows}</tbody></table>
