@@ -1634,6 +1634,23 @@ const TEAM_TO_METRO = {
   'San Antonio Silver Stars': 'San Antonio',
   'Tulsa Shock': 'Tulsa',
   'Utah Starzz': 'Salt Lake City',
+
+  // Historical era names that were unmapped, so their seasons were being dropped
+  // from the city index. Mapped to the market where the team PLAYED at the time
+  // (fleet market rule): rename-in-place keeps the same market; relocated teams'
+  // old names attach to the OLD market. (Chicago Black Hawks handled above.)
+  'Washington Bullets':      'Washington',              // renamed Wizards 1997 (same market)
+  'Phoenix Cardinals':       'Phoenix',                 // renamed Arizona Cardinals 1994 (same market)
+  'Kansas City Wiz':         'Kansas City',             // renamed Wizards / Sporting KC (same market)
+  'Kansas City Kings':       'Kansas City',             // moved to Sacramento 1985
+  'San Diego Clippers':      'San Diego',               // moved to LA 1984
+  'Baltimore Colts':         'Baltimore',               // moved to Indianapolis 1984
+  'Houston Oilers':          'Houston',                 // moved to Tennessee 1997
+  'Los Angeles Raiders':     'Los Angeles / Anaheim',   // Raiders' LA stint 1982-1994
+  'Atlanta Flames':          'Atlanta',                 // moved to Calgary 1980
+  'Hartford Whalers':        'Hartford / New Haven',    // moved to Carolina 1997
+  'Minnesota North Stars':   'Minneapolis / St. Paul',  // moved to Dallas 1993
+  'Quebec Nordiques':        'Quebec City',             // moved to Colorado 1995 (no current team)
 };
 
 // City Droughts pre-1980 lookups. Split into two intent-distinct dicts:
