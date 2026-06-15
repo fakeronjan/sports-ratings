@@ -233,7 +233,7 @@
   }
   /* Drop the chip-pill background on non-medal chips so the 🥈 silver and
      👑 gold backgrounds stand out against text-style siblings. */
-  .droughts-table .team-chip:not(.win):not(.runner):not(.departed) {
+  .droughts-table .team-chip:not(.win):not(.runner):not(.departed):not(.breaker) {
     background: transparent;
   }
   /* Bump runner's background to a silver tone, matching gold's
@@ -323,6 +323,10 @@
   .team-chip.win  { background: #fff7d6; }
   .team-chip.win  .sport-tag { background: #c8a84b; }
   .team-chip.win  .z { color: #1a6b8a; font-weight: 700; }
+  /* Drought-breaking team (Drought Breakers): light-teal highlight, not gold.
+     The chip's range is the years they did NOT win, so no crown. */
+  .team-chip.breaker { background: #d6edf2; }
+  .team-chip.breaker .z { color: #1a6b8a; font-weight: 700; }
   .team-chip.runner { background: #f0f0f0; }
   .team-chip.runner .sport-tag { background: #888; }
   /* Departed teams (City Droughts): faded with a year range instead of a
@@ -3360,10 +3364,9 @@ async function renderDroughtBreakers() {
   const teamChip = (t, departed) => {
     const short = TEAM_SHORT_NAME[t.team] || t.team;
     const classes = ['team-chip'];
-    let extra = '';
-    if (t.isBreaker)     { classes.push('win'); extra = ' 👑'; }
+    if (t.isBreaker)     { classes.push('breaker'); }   // light-teal highlight, no crown (these are the title-less years)
     else if (departed)   { classes.push('departed'); }
-    return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr(t.ranges)}</span> ${short}${extra}:<span class="z">${t.count}</span></span>`;
+    return `<span class="${classes.join(' ')}"><span class="sport-tag">${t.sport}</span><span class="yr">${rangeStr(t.ranges)}</span> ${short}:<span class="z">${t.count}</span></span>`;
   };
   const rows = top.map((r, i) => {
     const b = r.breaker;
@@ -3543,7 +3546,7 @@ async function renderTeamDroughtBreakers() {
     const rangeStr = r.ranges.length
       ? r.ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ')
       : `${r.since}-${r.year}`;
-    const detail = `<span class="team-chip win"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short} 👑:<span class="z">${r.count}</span></span>`;
+    const detail = `<span class="team-chip breaker"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short}:<span class="z">${r.count}</span></span>`;
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
       : '';
