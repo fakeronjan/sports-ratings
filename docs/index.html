@@ -727,7 +727,7 @@
     <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-history-view" class="view tab">
-    <p class="data-note">VIBE rating is a composite of successful seasons across sports · Championships and runner-up finishes are weighted heavier · One city over time, with 👑 / 🥈 markers flagging title moments</p>
+    <p class="data-note">VIBE rating is a composite of successful seasons across sports · Championships and runner-up finishes are weighted heavier · One city over time, with 👑 / 🥈 markers flagging championship moments</p>
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="goat-table-view" class="view tab">
@@ -1341,14 +1341,14 @@ let droughtScope = 'city';   // 'city' | 'team'
 let droughtMode = 'active';  // 'active' | 'broken'
 const DROUGHT_NOTES = {
   'active-city':
-    `<p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market since that championship</p>
+    `<p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>
      <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>`,
   'active-team':
-    `<p class="data-note">Years counts the time since the team's last title, or for a team that has never won, since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry</p>`,
+    `<p class="data-note">Years counts the time since the team's last championship, or for a team that has never won, since it began in its current market · Current-market only, so a relocated team's prior-city championships don't carry</p>`,
   'broken-city':
     `<p class="data-note">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>`,
   'broken-team':
-    `<p class="data-note">Years counts the time since the team's previous title, or for a first-ever title since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry</p>`,
+    `<p class="data-note">Years counts the time since the team's previous championship, or for a first-ever championship since it began in its current market · Current-market only, so a relocated team's prior-city championships don't carry</p>`,
 };
 function renderDroughtsView() {
   const notes = document.getElementById('drought-notes');
@@ -3195,10 +3195,10 @@ async function renderCityDroughts() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Last Champion</th>
-        <th>Teams <span class="th-sub">(years since last champ in city)</span></th>
-        <th class="num drought-stack">Years since<br>last champ</th>
-        <th class="num drought-stack">Season-Years<br>since last champ</th>
+        <th>Last Championship</th>
+        <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
+        <th class="num drought-stack">Years</th>
+        <th class="num drought-stack">Season-Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -3392,7 +3392,7 @@ async function renderDroughtBreakers() {
     const titleLine = `<div class="champ-line"><span class="last-champ-sport">${b.sport}</span>${b.year} ${bShort} 👑</div>`;
     let sinceLine;
     if (r.isFirst) {
-      sinceLine = `<div class="champ-line">(first title, since ${r.droughtStart})</div>`;
+      sinceLine = `<div class="champ-line">(first championship · since ${r.droughtStart})</div>`;
     } else {
       const pShort = TEAM_SHORT_NAME[r.prior.team] || r.prior.team;
       const note = r.prior.note ? `, ${r.prior.note}` : '';
@@ -3421,14 +3421,14 @@ async function renderDroughtBreakers() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(prior title in parens)</span></th>
+        <th>Drought-Ending Championship<br><span class="th-sub" style="margin-left:0">(previous championship in parens)</span></th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
         <th class="num drought-stack">Years</th>
-        <th class="num drought-stack">Season-Years<br>ended</th>
+        <th class="num drought-stack">Season-Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>${footnote}
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest droughts ended, ranked by Years.</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest championship droughts ended, ranked by years.</p>
   `;
   attachCityLinks();
 }
@@ -3551,7 +3551,7 @@ async function renderTeamDroughtBreakers() {
     // the previous title (same team) in the same pill format underneath.
     const titleLine = `<span class="last-champ-sport">${r.sport}</span>${r.year} ${short} 👑`;
     const sinceLine = r.isFirst
-      ? `(first title · since ${r.since})`
+      ? `(first championship · since ${r.since})`
       : `(<span class="last-champ-sport">${r.sport}</span>${r.since} ${short})`;
     // Drought Detail = the By City "Teams" chip format for this one team:
     // sport tag, the gap-aware drought span (splits on relocation / lockout
@@ -3583,13 +3583,13 @@ async function renderTeamDroughtBreakers() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(previous title in parens)</span></th>
+        <th>Drought-Ending Championship<br><span class="th-sub" style="margin-left:0">(previous championship in parens)</span></th>
         <th>Drought Detail</th>
-        <th class="num drought-stack">Years<br>ended</th>
+        <th class="num drought-stack">Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title droughts ended, ranked by years. Drought-start is the team's previous title, or for a first-ever title the year it began in its current market (counting AFL / ABA / WHA / AAFC predecessor leagues).</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest championship droughts ended, ranked by years. Drought-start is the team's previous championship, or for a first-ever championship the year it began in its current market (counting AFL / ABA / WHA / AAFC predecessor leagues).</p>
   `;
   attachCityLinks();
 }
@@ -3702,13 +3702,13 @@ async function renderTeamActiveDroughts() {
       <thead><tr>
         <th class="num">Rank</th>
         <th>City</th>
-        <th>Last Title</th>
+        <th>Last Championship</th>
         <th>Drought Detail</th>
-        <th class="num drought-stack">Years<br>(active)</th>
+        <th class="num drought-stack">Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest active title droughts. Years counts the seasons the team has played in its current market since its last title (or since it began there, if it has never won), excluding seasons away in another market and cancelled seasons.</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest active championship droughts. Years counts the seasons the team has played in its current market since its last championship (or since it began there, if it has never won), excluding seasons away in another market and cancelled seasons.</p>
   `;
   attachCityLinks();
 }
