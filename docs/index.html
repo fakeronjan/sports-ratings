@@ -739,18 +739,11 @@
       <button class="active" data-dmode="active" role="tab">Active Droughts</button>
       <button data-dmode="broken" role="tab">Drought Breakers</button>
     </div>
-    <div id="drought-active-notes">
-      <p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market since that championship</p>
-      <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>
+    <div class="drought-toggle" role="tablist" style="margin-bottom:10px">
+      <button class="active" data-dscope="city" role="tab">By City</button>
+      <button data-dscope="team" role="tab">By Team</button>
     </div>
-    <div id="drought-broken-notes" style="display:none">
-      <div class="drought-toggle" role="tablist" style="margin-bottom:10px">
-        <button class="active" data-dscope="city" role="tab">By City</button>
-        <button data-dscope="team" role="tab">By Team</button>
-      </div>
-      <p class="data-note" id="drought-broken-note-city">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>
-      <p class="data-note" id="drought-broken-note-team" style="display:none">Years counts the time since the team's previous title, or for a first-ever title since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry</p>
-    </div>
+    <div id="drought-notes"></div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
   </div>
 </main>
@@ -1304,7 +1297,7 @@ const cityRenderers = {
   'cross-sport-rankings': renderCrossSportRankings,
   'city-history':         renderCityHistory,
   'goat-table':           renderGoatYears,
-  'city-droughts':        renderCityDroughts,
+  'city-droughts':        renderDroughtsView,
 };
 const cityRendered = {};
 const CITY_TABS = new Set(Object.keys(cityRenderers));
@@ -1327,11 +1320,7 @@ function renderActiveCityTab() {
   const activeBtn = document.querySelector('nav.view-tabs button.active');
   const target = activeBtn && activeBtn.dataset.view;
   if (!CITY_TABS.has(target)) return;
-  if (target === 'city-droughts') {
-    if (droughtMode === 'broken') renderBrokenView(); else renderCityDroughts();
-  } else {
-    cityRenderers[target]();
-  }
+  cityRenderers[target]();
 }
 
 // Global league filter: switch preset, invalidate the lazy-render cache so other
@@ -1346,33 +1335,42 @@ document.querySelectorAll('[data-preset]').forEach(btn => {
   });
 });
 
-// City Droughts: Active <-> Drought Breakers mode toggle, and within Breakers a
-// By City <-> By Team scope toggle. The main tab's first activation lazy-renders
-// Active; these buttons swap the notes block and re-render the chosen view (all
-// renderers are idempotent + read the cached cityData via ensureCityData).
-let droughtScope = 'city';
-let droughtMode = 'active';
-function renderBrokenView() {
-  return droughtScope === 'team' ? renderTeamDroughtBreakers() : renderDroughtBreakers();
+// City Droughts: a 2x2 of Active <-> Drought Breakers (mode) and By City <->
+// By Team (scope). One dispatcher swaps the note + renders the right view.
+let droughtScope = 'city';   // 'city' | 'team'
+let droughtMode = 'active';  // 'active' | 'broken'
+const DROUGHT_NOTES = {
+  'active-city':
+    `<p class="data-note">Years counts the time since each city's last championship in any sport · Season-Years counts the number of seasons across all teams in the market since that championship</p>
+     <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>`,
+  'active-team':
+    `<p class="data-note">Years counts the time since the team's last title, or for a team that has never won, since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry</p>`,
+  'broken-city':
+    `<p class="data-note">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>`,
+  'broken-team':
+    `<p class="data-note">Years counts the time since the team's previous title, or for a first-ever title since it began in its current market · Current-market only, so a relocated team's prior-city titles don't carry</p>`,
+};
+function renderDroughtsView() {
+  const notes = document.getElementById('drought-notes');
+  if (notes) notes.innerHTML = DROUGHT_NOTES[`${droughtMode}-${droughtScope}`] || '';
+  if (droughtMode === 'active') {
+    droughtScope === 'team' ? renderTeamActiveDroughts() : renderCityDroughts();
+  } else {
+    droughtScope === 'team' ? renderTeamDroughtBreakers() : renderDroughtBreakers();
+  }
 }
 document.querySelectorAll('[data-dmode]').forEach(btn => {
   btn.addEventListener('click', () => {
-    const mode = btn.dataset.dmode;
-    droughtMode = mode;
+    droughtMode = btn.dataset.dmode;
     document.querySelectorAll('[data-dmode]').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('drought-active-notes').style.display = mode === 'active' ? '' : 'none';
-    document.getElementById('drought-broken-notes').style.display = mode === 'broken' ? '' : 'none';
-    if (mode === 'active') renderCityDroughts();
-    else renderBrokenView();
+    renderDroughtsView();
   });
 });
 document.querySelectorAll('[data-dscope]').forEach(btn => {
   btn.addEventListener('click', () => {
     droughtScope = btn.dataset.dscope;
     document.querySelectorAll('[data-dscope]').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('drought-broken-note-city').style.display = droughtScope === 'city' ? '' : 'none';
-    document.getElementById('drought-broken-note-team').style.display = droughtScope === 'team' ? '' : 'none';
-    renderBrokenView();
+    renderDroughtsView();
   });
 });
 
@@ -1806,6 +1804,7 @@ const TEAM_PRE1980_TITLES = {
   'NHL__Chicago Blackhawks':    [1934,1938,1961],
   'NHL__Philadelphia Flyers':   [1974,1975],
   // NFL (season years)
+  'NFL__Buffalo Bills':         [1964,1965],   // AFL Championships (current franchise + market)
   'NFL__Green Bay Packers':     [1929,1930,1931,1936,1939,1944,1961,1962,1965,1966,1967],
   'NFL__Chicago Bears':         [1921,1932,1933,1940,1941,1943,1946,1963],
   'NFL__New York Giants':       [1927,1934,1938,1956],
@@ -1862,6 +1861,22 @@ const TEAM_FOUNDED = {
   'NFL__New Orleans Saints':     1967,
   'NFL__Seattle Seahawks':       1976,
   'NFL__Tampa Bay Buccaneers':   1976,
+
+  // Never-won franchises founded pre-1980 in their current market - needed so
+  // the active By Team view dates their drought to their actual start, not the
+  // 1980 data floor. (Current-market only / arrival year for the relocated ones.)
+  'NBA__Phoenix Suns':         1968,
+  'NBA__Indiana Pacers':       1967,   // ABA
+  'NBA__Atlanta Hawks':        1968,   // arrived Atlanta from St. Louis
+  'NBA__Utah Jazz':            1979,   // arrived Utah from New Orleans
+  'MLB__San Diego Padres':     1969,
+  'MLB__Milwaukee Brewers':    1970,   // arrived Milwaukee from Seattle
+  'MLB__Seattle Mariners':     1977,
+  'NHL__Buffalo Sabres':       1970,
+  'NHL__Vancouver Canucks':    1970,
+  'NFL__Minnesota Vikings':    1961,
+  'NFL__Atlanta Falcons':      1966,
+  'NFL__Cincinnati Bengals':   1968,
 };
 
 // Short team names for chip display. Since the city is already established
@@ -3575,6 +3590,125 @@ async function renderTeamDroughtBreakers() {
       <tbody>${rows}</tbody>
     </table>
     <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest title droughts ended, ranked by years. Drought-start is the team's previous title, or for a first-ever title the year it began in its current market (counting AFL / ABA / WHA / AAFC predecessor leagues).</p>
+  `;
+  attachCityLinks();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-view: Active Droughts, By Team
+// The "still waiting" side: each CURRENT team's ongoing title drought (to the
+// latest season), gap-aware + current-market only - the team analog of the
+// active By City view. Same machinery as the team breaker, but the window runs
+// to the present instead of ending at a title.
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderTeamActiveDroughts() {
+  const el = document.getElementById('city-droughts-content');
+  el.innerHTML = '<p class="loading">Loading...</p>';
+  const data = await viewCityData();
+  if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
+
+  const titles = {}, played = {}, firstSeen = {}, meta = {}, leagueActiveYears = {}, latestSeason = {};
+  for (const snap of data.snapshotMetros) {
+    for (const m of snap.metros) {
+      for (const t of m.teams) {
+        if (t.seasonYear == null) continue;
+        const name = franchiseName(t.team);
+        const key = `${t.sport}__${name}`;
+        if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
+        if (firstSeen[key] == null || t.seasonYear < firstSeen[key]) firstSeen[key] = t.seasonYear;
+        (played[key] = played[key] || new Set()).add(t.seasonYear);
+        (leagueActiveYears[t.sport] = leagueActiveYears[t.sport] || new Set()).add(t.seasonYear);
+        if (latestSeason[t.sport] == null || t.seasonYear > latestSeason[t.sport]) latestSeason[t.sport] = t.seasonYear;
+        if (t.finalsStatus === 2) (titles[key] = titles[key] || new Set()).add(t.seasonYear);
+      }
+    }
+  }
+  for (const key in TEAM_PRE1980_TITLES) {
+    const set = (titles[key] = titles[key] || new Set());
+    for (const y of TEAM_PRE1980_TITLES[key]) set.add(y);
+  }
+
+  const NO_PLAY = { NHL: new Set([2005]) };
+  const isActive = (sport, y, ps) => {
+    if (y <= 1979) return true;
+    if (ps.has(y)) return true;
+    if (NO_PLAY[sport] && NO_PLAY[sport].has(y)) return false;
+    if (leagueActiveYears[sport] && leagueActiveYears[sport].has(y)) return false;
+    return true;
+  };
+
+  // Current franchises only (rostered now), keyed by franchise + their market.
+  const currentKeys = new Map();
+  for (const m of data.current) for (const t of m.teams) {
+    const key = `${t.sport}__${franchiseName(t.team)}`;
+    if (!currentKeys.has(key)) currentKeys.set(key, m.name);
+  }
+
+  const records = [];
+  for (const [key, market] of currentKeys) {
+    const sport = key.slice(0, key.indexOf('__'));
+    const name  = key.slice(key.indexOf('__') + 2);
+    const present = latestSeason[sport];
+    if (present == null) continue;
+    const tset = titles[key];
+    const lastTitle = (tset && tset.size) ? Math.max(...tset) : null;
+    const everWon = lastTitle != null;
+    let since;
+    if (everWon) since = lastTitle;
+    else { since = (TEAM_FOUNDED[key] != null) ? TEAM_FOUNDED[key] : firstSeen[key]; }
+    if (since == null) continue;
+    const lo = everWon ? since + 1 : since;
+    const ps = played[key] || new Set();
+    const F = [];
+    for (let y = lo; y <= present; y++) if (isActive(sport, y, ps)) F.push(y);
+    if (F.length === 0) continue;             // won the latest season -> no active drought
+    const ranges = [];
+    let s = F[0], p = F[0];
+    for (let i = 1; i < F.length; i++) { if (F[i] - p > 2) { ranges.push({ first: s, last: p }); s = F[i]; } p = F[i]; }
+    ranges.push({ first: s, last: p });
+    const calendar = present - lo + 1;
+    records.push({ sport, name, market, everWon, lastTitle, since, drought: F.length, count: F.length, gap: calendar - F.length, ranges });
+  }
+  records.sort((a, b) => (b.drought - a.drought) || (b.count - a.count));
+  const TOP_N = 50;
+  const top = records.slice(0, TOP_N);
+
+  const rows = top.map((r, i) => {
+    const short = TEAM_SHORT_NAME[r.name] || r.name;
+    const lastChampLine = r.everWon
+      ? `<div class="champ-line"><span class="last-champ-sport">${r.sport}</span>${r.lastTitle} ${short}</div>`
+      : `<div class="champ-line" style="color:#888">Never won · since ${r.since}</div>`;
+    const rangeStr = r.ranges.length
+      ? r.ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ')
+      : `${r.since}-${r.lastTitle || r.since}`;
+    const detail = `<span class="team-chip"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short}:<span class="z">${r.count}</span></span>`;
+    const gapNote = r.gap > 0
+      ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
+      : '';
+    const cityCell = r.market
+      ? `<td class="city-cell linked" data-city-link="${r.market}" style="white-space:nowrap">${r.market}</td>`
+      : `<td class="city-cell" style="white-space:nowrap">-</td>`;
+    return `<tr>
+      <td class="rank-cell">${i + 1}</td>
+      ${cityCell}
+      <td style="white-space:nowrap;vertical-align:top">${lastChampLine}</td>
+      <td style="vertical-align:middle">${detail}</td>
+      <td class="num total-drought-cell">${r.drought}${gapNote}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table class="droughts-table">
+      <thead><tr>
+        <th class="num">Rank</th>
+        <th>City</th>
+        <th>Last Title</th>
+        <th>Drought Detail</th>
+        <th class="num drought-stack">Years<br>(active)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest active title droughts. Years counts the seasons the team has played in its current market since its last title (or since it began there, if it has never won), excluding seasons away in another market and cancelled seasons.</p>
   `;
   attachCityLinks();
 }
