@@ -745,6 +745,7 @@
     </div>
     <div id="drought-notes"></div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
+    <p class="data-note" style="color:#c62828; margin-top:12px">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of any +1 gap shown for NHL droughts.</p>
   </div>
 </main>
 
@@ -1341,8 +1342,7 @@ let droughtScope = 'city';   // 'city' | 'team'
 let droughtMode = 'active';  // 'active' | 'broken'
 const DROUGHT_NOTES = {
   'active-city':
-    `<p class="data-note">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>
-     <p class="data-note" style="color:#c62828">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of the +1 gap on the hockey-only markets below.</p>`,
+    `<p class="data-note">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>`,
   'active-team':
     `<p class="data-note">Years counts the time since the team's previous championship, or for a team that has never won, since it began in its current market · Current-market only, so a relocated team's previous-city championships don't carry</p>`,
   'broken-city':
@@ -1895,7 +1895,7 @@ const TEAM_SHORT_NAME = {
   'Philadelphia 76ers': '76ers', 'Phoenix Suns': 'Suns',
   'Portland Trail Blazers': 'Trail Blazers', 'Sacramento Kings': 'Kings',
   'San Antonio Spurs': 'Spurs', 'Toronto Raptors': 'Raptors',
-  'Utah Jazz': 'Jazz', 'Washington Wizards': 'Wizards',
+  'Utah Jazz': 'Jazz', 'Washington Wizards': 'Wizards', 'Washington Bullets': 'Bullets',
   'Charlotte Bobcats': 'Bobcats', 'NO/OKC Hornets': 'Hornets',
   'New Jersey Nets': 'Nets', 'New Orleans Hornets': 'Hornets',
   'Seattle SuperSonics': 'SuperSonics', 'Vancouver Grizzlies': 'Grizzlies',
@@ -1913,7 +1913,7 @@ const TEAM_SHORT_NAME = {
   'San Antonio Silver Stars': 'Silver Stars', 'Tulsa Shock': 'Shock',
   'Utah Starzz': 'Starzz',
   // NFL
-  'Arizona Cardinals': 'Cardinals', 'Atlanta Falcons': 'Falcons',
+  'Arizona Cardinals': 'Cardinals', 'Phoenix Cardinals': 'Cardinals', 'Atlanta Falcons': 'Falcons',
   'Baltimore Ravens': 'Ravens', 'Buffalo Bills': 'Bills',
   'Carolina Panthers': 'Panthers', 'Chicago Bears': 'Bears',
   'Cincinnati Bengals': 'Bengals', 'Cleveland Browns': 'Browns',
@@ -1954,7 +1954,7 @@ const TEAM_SHORT_NAME = {
   // NHL
   'Anaheim Ducks': 'Ducks', 'Boston Bruins': 'Bruins',
   'Buffalo Sabres': 'Sabres', 'Calgary Flames': 'Flames',
-  'Carolina Hurricanes': 'Hurricanes', 'Chicago Blackhawks': 'Blackhawks',
+  'Carolina Hurricanes': 'Hurricanes', 'Chicago Blackhawks': 'Blackhawks', 'Chicago Black Hawks': 'Black Hawks',
   'Colorado Avalanche': 'Avalanche', 'Columbus Blue Jackets': 'Blue Jackets',
   'Dallas Stars': 'Stars', 'Detroit Red Wings': 'Red Wings',
   'Edmonton Oilers': 'Oilers', 'Florida Panthers': 'Panthers',
@@ -3457,6 +3457,7 @@ async function renderTeamDroughtBreakers() {
   const firstSeen = {};         // key -> earliest season-year observed
   const meta = {};              // key -> {sport, name, market}
   const leagueActiveYears = {}; // sport -> Set(years a champion was crowned)
+  const rawByYear = {};         // key -> {year -> era-correct name that season}
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
@@ -3466,6 +3467,7 @@ async function renderTeamDroughtBreakers() {
         if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
         if (firstSeen[key] == null || t.seasonYear < firstSeen[key]) firstSeen[key] = t.seasonYear;
         (played[key] = played[key] || new Set()).add(t.seasonYear);
+        (rawByYear[key] = rawByYear[key] || {})[t.seasonYear] = t.team;
         (leagueActiveYears[t.sport] = leagueActiveYears[t.sport] || new Set()).add(t.seasonYear);
         if (t.finalsStatus === 2) (titles[key] = titles[key] || new Set()).add(t.seasonYear);
       }
@@ -3503,6 +3505,31 @@ async function renderTeamDroughtBreakers() {
     if (leagueActiveYears[sport] && leagueActiveYears[sport].has(y)) return false; // champ crowned but franchise was in another market
     return true;                                                         // league played, crowned no champ (1994 MLB) -> counts
   };
+  const eraNameAt = (key, year) => {
+    const byYear = rawByYear[key] || {};
+    if (byYear[year]) return byYear[year];
+    const yrs = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+    if (!yrs.length) return key.slice(key.indexOf('__') + 2);
+    let best = byYear[yrs[0]];
+    for (const y of yrs) { if (y <= year) best = byYear[y]; }
+    return best;
+  };
+  // One chip per era name (e.g. Indians vs Guardians), each gap-aware - matches
+  // the By City Teams column so era-correct names show across renames.
+  const eraChips = (key, F) => {
+    const byRaw = new Map();
+    for (const y of F) { const raw = eraNameAt(key, y); if (!byRaw.has(raw)) byRaw.set(raw, []); byRaw.get(raw).push(y); }
+    const chips = [];
+    for (const [raw, years] of byRaw) {
+      years.sort((a, b) => a - b);
+      const ranges = []; let s = years[0], p = years[0];
+      for (let i = 1; i < years.length; i++) { if (years[i] - p > 2) { ranges.push({ first: s, last: p }); s = years[i]; } p = years[i]; }
+      ranges.push({ first: s, last: p });
+      chips.push({ raw, ranges, count: years.length, firstYear: years[0] });
+    }
+    chips.sort((a, b) => a.firstYear - b.firstYear);
+    return chips;
+  };
   const detailFor = (key, since, year) => {
     const ps = played[key] || new Set();
     const sport = meta[key].sport;
@@ -3510,15 +3537,9 @@ async function renderTeamDroughtBreakers() {
     for (let y = since + 1; y <= year - 1; y++) {
       if (isActive(sport, y, ps)) F.push(y);
     }
-    const ranges = [];
-    if (F.length) {
-      let s = F[0], p = F[0];
-      for (let i = 1; i < F.length; i++) { if (F[i] - p > 2) { ranges.push({ first: s, last: p }); s = F[i]; } p = F[i]; }
-      ranges.push({ first: s, last: p });
-    }
     const years = F.length + 1;                    // active drought span
     const gap = (year - since) - years;            // span years not actually played
-    return { years, count: F.length, gap, ranges };
+    return { years, gap, F };
   };
 
   const records = [];
@@ -3538,28 +3559,28 @@ async function renderTeamDroughtBreakers() {
         since = founded; isFirst = true;
       }
       const d = detailFor(key, since, y);
-      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, count: d.count, gap: d.gap, ranges: d.ranges });
+      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, gap: d.gap, chips: eraChips(key, d.F), titleEra: eraNameAt(key, y), priorEra: isFirst ? null : eraNameAt(key, since) });
     }
   }
   records.sort((a, b) => (b.drought - a.drought) || (b.year - a.year));
   const TOP_N = 50;
   const top = records.slice(0, TOP_N);
 
+  const rangeStr = (ranges) => ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ');
   const rows = top.map((r, i) => {
-    const short = TEAM_SHORT_NAME[r.name] || r.name;
-    // Match the City view: league pill + year + team on the title line, with
-    // the previous title (same team) in the same pill format underneath.
-    const titleLine = `<span class="last-champ-sport">${r.sport}</span>${r.year} ${short} 👑`;
+    // Match the City view: league pill + year + era-correct team on the title
+    // line, with the previous title in the same pill format underneath.
+    const titleShort = TEAM_SHORT_NAME[r.titleEra] || r.titleEra;
+    const titleLine = `<span class="last-champ-sport">${r.sport}</span>${r.year} ${titleShort} 👑`;
     const sinceLine = r.isFirst
       ? `(first championship · since ${r.since})`
-      : `(<span class="last-champ-sport">${r.sport}</span>${r.since} ${short})`;
-    // Drought Detail = the By City "Teams" chip format for this one team:
-    // sport tag, the gap-aware drought span (splits on relocation / lockout
-    // gaps, same as the City view), name, 👑.
-    const rangeStr = r.ranges.length
-      ? r.ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ')
-      : `${r.since}-${r.year}`;
-    const detail = `<span class="team-chip breaker"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short}:<span class="z">${r.count}</span></span>`;
+      : `(<span class="last-champ-sport">${r.sport}</span>${r.since} ${TEAM_SHORT_NAME[r.priorEra] || r.priorEra})`;
+    // Drought Detail = one chip per era name (gap-aware), same as the By City
+    // Teams column, so era-correct names show across renames.
+    const detail = r.chips.map(c => {
+      const segShort = TEAM_SHORT_NAME[c.raw] || c.raw;
+      return `<span class="team-chip breaker"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
+    }).join('');
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
       : '';
@@ -3607,7 +3628,7 @@ async function renderTeamActiveDroughts() {
   const data = await viewCityData();
   if (data.error) { el.innerHTML = `<p class="error">Could not load: ${data.error}</p>`; return; }
 
-  const titles = {}, played = {}, firstSeen = {}, meta = {}, leagueActiveYears = {}, latestSeason = {};
+  const titles = {}, played = {}, firstSeen = {}, meta = {}, leagueActiveYears = {}, latestSeason = {}, rawByYear = {};
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
@@ -3617,6 +3638,7 @@ async function renderTeamActiveDroughts() {
         if (!meta[key]) meta[key] = { sport: t.sport, name, market: m.name };
         if (firstSeen[key] == null || t.seasonYear < firstSeen[key]) firstSeen[key] = t.seasonYear;
         (played[key] = played[key] || new Set()).add(t.seasonYear);
+        (rawByYear[key] = rawByYear[key] || {})[t.seasonYear] = t.team;   // era-correct name that season
         (leagueActiveYears[t.sport] = leagueActiveYears[t.sport] || new Set()).add(t.seasonYear);
         if (latestSeason[t.sport] == null || t.seasonYear > latestSeason[t.sport]) latestSeason[t.sport] = t.seasonYear;
         if (t.finalsStatus === 2) (titles[key] = titles[key] || new Set()).add(t.seasonYear);
@@ -3635,6 +3657,39 @@ async function renderTeamActiveDroughts() {
     if (NO_PLAY[sport] && NO_PLAY[sport].has(y)) return false;
     if (leagueActiveYears[sport] && leagueActiveYears[sport].has(y)) return false;
     return true;
+  };
+  // Era-correct name for a franchise in a given year (the snapshot raw name);
+  // for pre-1980 / gap years, the most recent name at or before that year.
+  const eraNameAt = (key, year) => {
+    const byYear = rawByYear[key] || {};
+    if (byYear[year]) return byYear[year];
+    const yrs = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+    if (!yrs.length) return key.slice(key.indexOf('__') + 2);
+    let best = byYear[yrs[0]];
+    for (const y of yrs) { if (y <= year) best = byYear[y]; }
+    return best;
+  };
+  // Group the drought years into one chip per era name (Indians vs Guardians,
+  // Hornets vs Bobcats, ...), each with gap-aware '/'-joined ranges - matching
+  // the By City Teams column.
+  const eraChips = (key, F) => {
+    const byRaw = new Map();
+    for (const y of F) {
+      const raw = eraNameAt(key, y);
+      if (!byRaw.has(raw)) byRaw.set(raw, []);
+      byRaw.get(raw).push(y);
+    }
+    const chips = [];
+    for (const [raw, years] of byRaw) {
+      years.sort((a, b) => a - b);
+      const ranges = [];
+      let s = years[0], p = years[0];
+      for (let i = 1; i < years.length; i++) { if (years[i] - p > 2) { ranges.push({ first: s, last: p }); s = years[i]; } p = years[i]; }
+      ranges.push({ first: s, last: p });
+      chips.push({ raw, ranges, count: years.length, firstYear: years[0] });
+    }
+    chips.sort((a, b) => a.firstYear - b.firstYear);
+    return chips;
   };
 
   // Current franchises only (rostered now), keyed by franchise + their market.
@@ -3662,26 +3717,24 @@ async function renderTeamActiveDroughts() {
     const F = [];
     for (let y = lo; y <= present; y++) if (isActive(sport, y, ps)) F.push(y);
     if (F.length === 0) continue;             // won the latest season -> no active drought
-    const ranges = [];
-    let s = F[0], p = F[0];
-    for (let i = 1; i < F.length; i++) { if (F[i] - p > 2) { ranges.push({ first: s, last: p }); s = F[i]; } p = F[i]; }
-    ranges.push({ first: s, last: p });
     const calendar = present - lo + 1;
-    records.push({ sport, name, market, everWon, lastTitle, since, drought: F.length, count: F.length, gap: calendar - F.length, ranges });
+    const titleEra = everWon ? eraNameAt(key, lastTitle) : null;
+    records.push({ sport, name, market, everWon, lastTitle, titleEra, since, drought: F.length, gap: calendar - F.length, chips: eraChips(key, F) });
   }
-  records.sort((a, b) => (b.drought - a.drought) || (b.count - a.count));
+  records.sort((a, b) => (b.drought - a.drought) || (b.gap - a.gap));
   const TOP_N = 50;
   const top = records.slice(0, TOP_N);
 
+  const rangeStr = (ranges) => ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ');
   const rows = top.map((r, i) => {
-    const short = TEAM_SHORT_NAME[r.name] || r.name;
+    const lastShort = r.everWon ? (TEAM_SHORT_NAME[r.titleEra] || r.titleEra) : null;
     const lastChampLine = r.everWon
-      ? `<div class="champ-line"><span class="last-champ-sport">${r.sport}</span>${r.lastTitle} ${short}</div>`
+      ? `<div class="champ-line"><span class="last-champ-sport">${r.sport}</span>${r.lastTitle} ${lastShort}</div>`
       : `<div class="champ-line" style="color:#888">Never won · since ${r.since}</div>`;
-    const rangeStr = r.ranges.length
-      ? r.ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ')
-      : `${r.since}-${r.lastTitle || r.since}`;
-    const detail = `<span class="team-chip"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short}:<span class="z">${r.count}</span></span>`;
+    const detail = r.chips.map(c => {
+      const segShort = TEAM_SHORT_NAME[c.raw] || c.raw;
+      return `<span class="team-chip"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr(c.ranges)}</span> ${segShort}:<span class="z">${c.count}</span></span>`;
+    }).join('');
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
       : '';
