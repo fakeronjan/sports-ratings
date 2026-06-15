@@ -3502,7 +3502,7 @@ async function renderTeamDroughtBreakers() {
     }
     const years = F.length + 1;                    // active drought span
     const gap = (year - since) - years;            // span years not actually played
-    return { years, gap, ranges };
+    return { years, count: F.length, gap, ranges };
   };
 
   const records = [];
@@ -3522,7 +3522,7 @@ async function renderTeamDroughtBreakers() {
         since = founded; isFirst = true;
       }
       const d = detailFor(key, since, y);
-      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, gap: d.gap, ranges: d.ranges });
+      records.push({ ...meta[key], year: y, since, isFirst, drought: d.years, count: d.count, gap: d.gap, ranges: d.ranges });
     }
   }
   records.sort((a, b) => (b.drought - a.drought) || (b.year - a.year));
@@ -3543,7 +3543,7 @@ async function renderTeamDroughtBreakers() {
     const rangeStr = r.ranges.length
       ? r.ranges.map(rg => rg.first === rg.last ? `${rg.first}` : `${rg.first}-${rg.last}`).join(' / ')
       : `${r.since}-${r.year}`;
-    const detail = `<span class="team-chip win"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short} 👑</span>`;
+    const detail = `<span class="team-chip win"><span class="sport-tag">${r.sport}</span><span class="yr">${rangeStr}</span> ${short} 👑:<span class="z">${r.count}</span></span>`;
     const gapNote = r.gap > 0
       ? ` <span class="champ-note" title="${r.gap} years the franchise was in another market or no season was played">(+${r.gap} gap)</span>`
       : '';
