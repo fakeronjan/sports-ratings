@@ -3218,9 +3218,9 @@ async function renderCityDroughts() {
 //
 // Reuses the same market-attributed data + pre-1980 override tables as the
 // active City Droughts view; the only change is the drought END is each
-// historical title moment instead of "today". Season-Years for droughts that
-// begin before 1980 are a floor (pre-1980 team tenures are only backfilled for
-// teams in TEAM_MARKET_ENTRY); a footnote flags that.
+// historical title moment instead of "today". Pre-1980 tenure for Season-Years
+// is backfilled from TEAM_MARKET_ENTRY / TEAM_FOUNDED / a team's first pre-1980
+// title, so pre-1980-spanning droughts are counted (not floored).
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderDroughtBreakers() {
   const el = document.getElementById('city-droughts-content');
@@ -3316,8 +3316,19 @@ async function renderDroughtBreakers() {
       for (const team in cityTen[sport]) {
         const ten = cityTen[sport][team];
         const played = new Set(ten.years);
-        if (TEAM_MARKET_ENTRY[team] != null && TEAM_MARKET_ENTRY[team] < ten.first) {
-          for (let y = TEAM_MARKET_ENTRY[team]; y < ten.first; y++) played.add(y);
+        // Pre-1980 tenure backfill (data only starts 1980): a team played from
+        // when it entered its market up to the data floor. Entry year = earliest
+        // of an explicit market-entry, a known founding, or its first pre-1980
+        // title (which proves it existed by then). Without this, season-years for
+        // a pre-1980-spanning drought undercount (e.g. Green Bay's Packers showed
+        // 17 instead of ~28 - only their 1980+ seasons were counted).
+        const fk = `${sport}__${franchiseName(team)}`;
+        let entry = TEAM_MARKET_ENTRY[team];
+        if (TEAM_FOUNDED[fk] != null && (entry == null || TEAM_FOUNDED[fk] < entry)) entry = TEAM_FOUNDED[fk];
+        const preT = TEAM_PRE1980_TITLES[fk];
+        if (preT && preT.length) { const mn = Math.min(...preT); if (entry == null || mn < entry) entry = mn; }
+        if (entry != null && entry < ten.first) {
+          for (let y = entry; y < ten.first; y++) played.add(y);
         }
         const isBreaker = (team === endTitle.team && sport === endTitle.sport);
         const lo = isFirstTitle ? droughtStart : (teamOrd > priorOrd ? droughtStart : droughtStart + 1);
@@ -3418,20 +3429,17 @@ async function renderDroughtBreakers() {
     const teamsCell = r.teams
       .map(t => teamChip(t, !t.isBreaker && t.departed))
       .join('');
-    const preMark = r.droughtStart < 1980 ? '<span class="champ-note" title="Season-Years for a drought beginning before 1980 is a floor; pre-1980 team tenures are only partially backfilled.">*</span>' : '';
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell linked" data-city-link="${r.city}">${r.city}</td>
       <td style="white-space:nowrap;vertical-align:top">${titleLine}${sinceLine}</td>
       <td style="vertical-align:middle">${teamsCell}</td>
       <td class="num total-drought-cell">${r.calendarYears}</td>
-      <td class="num team-years-cell">${r.seasonYears}${preMark}</td>
+      <td class="num team-years-cell">${r.seasonYears}</td>
     </tr>`;
   }).join('');
 
-  const footnote = anyPre1980
-    ? `<p class="data-note" style="margin-top:10px"><span class="champ-note">*</span> Droughts beginning before 1980 show a Season-Years floor: pre-1980 team tenures are only partially backfilled, so the true cumulative figure is somewhat higher.</p>`
-    : '';
+  const footnote = '';
 
   el.innerHTML = `
     <table class="droughts-table">
