@@ -3470,7 +3470,11 @@ async function renderTeamDroughtBreakers() {
   const top = records.slice(0, TOP_N);
 
   const rows = top.map((r, i) => {
+    const short = TEAM_SHORT_NAME[r.name] || r.name;
     const sinceLine = r.isFirst ? `(first title · since ${r.since})` : `(since ${r.since})`;
+    // Drought Detail = the same team-chip format the By City "Teams" column
+    // uses, for this one team: sport tag, the drought span, name, 👑.
+    const detail = `<span class="team-chip win"><span class="sport-tag">${r.sport}</span><span class="yr">${r.since}-${r.year}</span> ${short} 👑</span>`;
     return `<tr>
       <td class="rank-cell">${i + 1}</td>
       <td class="city-cell" style="white-space:nowrap"><span class="last-champ-sport">${r.sport}</span>${r.name}</td>
@@ -3478,6 +3482,7 @@ async function renderTeamDroughtBreakers() {
         <div class="champ-line">${r.year} 👑</div>
         <div class="champ-line">${sinceLine}</div>
       </td>
+      <td style="vertical-align:middle">${detail}</td>
       <td class="num total-drought-cell">${r.drought}</td>
     </tr>`;
   }).join('');
@@ -3488,6 +3493,7 @@ async function renderTeamDroughtBreakers() {
         <th class="num">Rank</th>
         <th>Team</th>
         <th>Drought-Ending Title<br><span class="th-sub" style="margin-left:0">(previous title in parens)</span></th>
+        <th>Drought Detail</th>
         <th class="num drought-stack">Years<br>ended</th>
       </tr></thead>
       <tbody>${rows}</tbody>
