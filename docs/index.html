@@ -1067,6 +1067,13 @@ async function loadWLS(repo, badgeFn, opts) {
 }
 
 const TENNIS_SLAM_FLAG = { AO: '🇦🇺', FO: '🇫🇷', Wim: '🇬🇧', US: '🇺🇸' };
+const TENNIS_SLAM_NAME = { AO: 'Australian Open', FO: 'Roland Garros', Wim: 'Wimbledon', US: 'US Open' };
+const _MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function _fmtMonthName(iso) {
+  if (!iso) return '';
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${_MON_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
 // Right-side widths: 60 + 110 + 50 = 220px - matches the 226px convention
 // LAVIN's column comment cites (the old hardcoded TENNIS GOAT card used the
 // same 4×44 + 50 layout). Keeps Player-column whitespace consistent with
@@ -1120,7 +1127,14 @@ async function loadTennisCurrent(gender) {
   return {
     columns: TENNIS_COLS,
     rows,
-    seasonName: `Timeframe ${_fmtWindowMonth(snap.window_start, snap.type)} - ${_fmtWindowMonth(snap.window_end, snap.type)}`,
+    // Slam-anchored phrasing of the rolling window's end point: slams read
+    // "Through Roland Garros 2026", the year-end snapshot reads "End of 2025",
+    // and the live-tour "Today" snapshot reads "Through Jun 2026" (window end).
+    seasonName: snap.type === 'slam'
+      ? `Through ${TENNIS_SLAM_NAME[snap.code] || (snap.label || '').replace(/^After\s+/, '')} ${snap.year}`
+      : snap.type === 'eoy'
+        ? `End of ${snap.year}`
+        : `Through ${_fmtMonthName(snap.window_end)}`,
     updated: `Last matches added: ${_fmtWindowMonth(snap.date, snap.type)}`,
   };
 }
