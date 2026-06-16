@@ -716,7 +716,7 @@
   <div class="drought-toggle" role="tablist">
     <button data-preset="big4" role="tab">Historical Big 4</button>
     <button data-preset="big4mls" role="tab">Big 4 + MLS</button>
-    <button class="active" data-preset="all" role="tab">All</button>
+    <button class="active" data-preset="all" role="tab">Big 4 + MLS + WNBA</button>
   </div>
 </div>
 
@@ -2320,7 +2320,7 @@ async function ensureCityData() {
 const LEAGUE_PRESETS = {
   'big4':    { label: 'Historical Big 4', sports: ['NBA', 'NFL', 'MLB', 'NHL'] },
   'big4mls': { label: 'Big 4 + MLS',      sports: ['NBA', 'NFL', 'MLB', 'NHL', 'MLS'] },
-  'all':     { label: 'All',              sports: ['NBA', 'NFL', 'MLB', 'NHL', 'MLS', 'WNBA'] },
+  'all':     { label: 'Big 4 + MLS + WNBA', sports: ['NBA', 'NFL', 'MLB', 'NHL', 'MLS', 'WNBA'] },
 };
 let leaguePreset = 'all';
 function currentSports() { return new Set(LEAGUE_PRESETS[leaguePreset].sports); }
