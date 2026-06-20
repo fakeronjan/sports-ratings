@@ -806,7 +806,7 @@ function badgeSALAAM(t) {
     return `<span class="badge-inline b-champion" title="National Champion">${label} 👑</span>`;
   }
   if (t.cfp_status === 1)     return `<span class="badge-inline b-runner" title="CFP Runner-Up">${t.era || 'CFP'} 🥈</span>`;
-  if (t.cfp_appearance === 1) return `<span class="badge-inline b-appearance" title="CFP Appearance">CFP App.</span>`;
+  if (t.cfp_appearance === 1) return `<span class="badge-inline b-appearance" title="CFP Appearance">CFP</span>`;
   return '';
 }
 
