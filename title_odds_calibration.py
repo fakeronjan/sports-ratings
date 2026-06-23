@@ -105,7 +105,7 @@ def main():
         if not rows:
             print(f"\n{name} ({sport}): no data"); continue
         pooled += rows
-        print(f"\n{'─'*72}\n{name} ({sport})  —  {nseas} completed seasons {lo}-{hi}")
+        print(f"\n{'─'*72}\n{name} ({sport})  -  {nseas} completed seasons {lo}-{hi}")
         print_table(f"{name}", rows)
     print(f"\n{'='*72}\nPOOLED (all four sports)")
     print_table("POOLED", pooled)
