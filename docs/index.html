@@ -2550,7 +2550,7 @@ async function renderCityHistory() {
     <div id="city-history-chart-wrap" style="display:none">
       <svg id="city-history-chart"></svg>
     </div>
-    <div id="ch-table"><p class="loading">Pick a city above to see its history.</p></div>
+    <div id="ch-table"><p class="loading">Pick a city above to see its history</p></div>
   `;
 
   const sel = el.querySelector('#ch-city');
@@ -2561,7 +2561,7 @@ async function renderCityHistory() {
     } else {
       document.getElementById('city-history-chart-wrap').style.display = 'none';
       document.getElementById('ch-table').innerHTML =
-        '<p class="loading">Pick a city above to see its history.</p>';
+        '<p class="loading">Pick a city above to see its history</p>';
     }
   };
   // Retain the picked city across league-filter changes (if it still has teams).
@@ -2611,7 +2611,7 @@ function renderSingleCityChart(cityName, data) {
 
   if (points.length === 0) {
     wrap.style.display = 'none';
-    tableEl.innerHTML = `<p class="loading">${cityName} has no ratings in the range.</p>`;
+    tableEl.innerHTML = `<p class="loading">${cityName} has no ratings in the range</p>`;
     return;
   }
 
@@ -3487,7 +3487,7 @@ async function renderDroughtBreakers() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>${footnote}
-    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest championship droughts ended, ranked by years.</p>
+    <p class="data-note" style="margin-top:8px">Showing the ${TOP_N} longest championship droughts ended, ranked by years</p>
   `;
   attachCityLinks();
 }
