@@ -2783,19 +2783,17 @@ async function renderGoatYears() {
       const yk = `${m.name}__${s.year}`;
       const prev = yearly.get(yk);
       if (!prev || m.vibeZ > prev.vibeZ) {
-        // Signature: the exact (sport, team, season-year) tuples credited
-        // toward Vibe (champions + the best non-champion). Two rating windows
-        // with the same signature are telling the same story (same teams from
-        // the same seasons doing the contributing); the only thing that
-        // changed between them is some unrelated update elsewhere in the
-        // portfolio. Pass 2 will dedupe on this.
+        // Signature: the set of (sport, team, season-year) tuples crediting
+        // toward Vibe (the city's champions + runners-up). Two windows whose
+        // signatures overlap heavily are telling the same title story (often a
+        // carryover dynasty window seen a year later); Pass 2 dedupes on that
+        // overlap. nChamps is carried for the keep-priority tiebreak.
         const sig = m.vibeContributors
-          .map(t => `${t.sport}:${t.team}:${t.seasonYear}`)
-          .sort()
-          .join('|');
+          .map(t => `${t.sport}:${t.team}:${t.seasonYear}`);
+        const nChamps = m.vibeContributors.filter(t => t.finalsStatus === 2).length;
         yearly.set(yk, {
           city: m.name, year: s.year,
-          vibeZ: m.vibeZ, sig,
+          vibeZ: m.vibeZ, sig, nChamps,
           nTeams: m.nTeams, sumNegZ: m.sumNegZ,
           label: s.label, date: s.date,
           teams: m.teams, nSports: m.nSports,
@@ -2804,20 +2802,38 @@ async function renderGoatYears() {
     }
   }
 
-  // Pass 2: collapse same-signature entries to the earliest year. Example:
-  // Bay Area 1989 (1989 NFL SB window: 49ers '89 SB champ + A's '89 WS
-  // champ) and Bay Area 1990 (1990 NBA Finals window: same 1989 49ers and
-  // 1989 A's carrying forward because no new NFL / MLB season has wrapped)
-  // both have signature {NFL:49ers:1989, MLB:Athletics:1989} - just keep
-  // the year the story actually started.
-  const peaks = new Map();
-  for (const e of yearly.values()) {
-    const key = `${e.city}__${e.sig}`;
-    const prev = peaks.get(key);
-    if (!prev || e.year < prev.year) peaks.set(key, e);
+  // Pass 2: collapse NEAR-duplicate city-years - windows for the same city
+  // whose title stories mostly overlap. The common case is a carryover dynasty
+  // window seen a year later: LA 2002's four titles vs LA 2003, where three of
+  // them carry forward and only the Lakers swap out (the 2003 Mighty Ducks RU
+  // replaces them). Two entries merge when the Jaccard overlap of their
+  // credited (sport, team, season-year) sets is >= 0.5 - so genuinely distinct
+  // years survive (back-to-back Dodgers titles in 2024 and 2025 share only a
+  // carryover Galaxy, overlap 0.33). We keep the best representative of each
+  // cluster: most championships, then highest Vibe, then earliest year - so a
+  // pure-carryover echo folds into the year the titles were actually won
+  // (Bay Area keeps 1989, not the identical 1990 echo). User direction
+  // 2026-06-25; replaces an exact-signature-only collapse.
+  const DUP_JACCARD = 0.5;
+  const byKeepPriority = [...yearly.values()].sort((a, b) =>
+    (b.nChamps - a.nChamps) || (b.vibeZ - a.vibeZ) || (a.year - b.year));
+  const keptByCity = new Map();  // city -> [kept entries]
+  const peaks = [];
+  for (const e of byKeepPriority) {
+    const eSet = new Set(e.sig);
+    const prior = keptByCity.get(e.city) || [];
+    let isDup = false;
+    for (const k of prior) {
+      if (!eSet.size || !k.sig.length) continue;
+      let inter = 0;
+      for (const x of k.sig) if (eSet.has(x)) inter++;
+      const union = eSet.size + k.sig.length - inter;
+      if (union > 0 && inter / union >= DUP_JACCARD) { isDup = true; break; }
+    }
+    if (!isDup) { peaks.push(e); prior.push(e); keptByCity.set(e.city, prior); }
   }
 
-  const top = [...peaks.values()]
+  const top = peaks
     .sort(vibeRankCompare)
     .slice(0, 50);
 
