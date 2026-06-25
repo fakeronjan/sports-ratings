@@ -188,6 +188,11 @@
     width: 92px;
     min-width: 92px;
   }
+  /* The column the table is currently sorted by (City Droughts). */
+  .droughts-table th.drought-stack.sorted {
+    color: #1a6b8a;
+    text-decoration: underline;
+  }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
   /* Active / Drought-Breakers mode toggle (City Droughts tab). */
   .drought-toggle {
@@ -743,6 +748,11 @@
     <div class="drought-toggle" role="tablist" style="margin-bottom:10px">
       <button class="active" data-dscope="city" role="tab">By City</button>
       <button data-dscope="team" role="tab">By Team</button>
+    </div>
+    <div class="drought-toggle" id="drought-sort-toggle" role="tablist" style="margin-bottom:10px">
+      <span class="league-filter-label" style="align-self:center">Sort by</span>
+      <button class="active" data-dsort="years" role="tab">Years</button>
+      <button data-dsort="seasonYears" role="tab">Season-Years</button>
     </div>
     <div id="drought-notes"></div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
@@ -1375,6 +1385,7 @@ document.querySelectorAll('[data-preset]').forEach(btn => {
 // By Team (scope). One dispatcher swaps the note + renders the right view.
 let droughtScope = 'city';   // 'city' | 'team'
 let droughtMode = 'active';  // 'active' | 'broken'
+let droughtSort = 'years';   // 'years' | 'seasonYears' (city scope only)
 const DROUGHT_NOTES = {
   'active-city':
     `<p class="data-note">Years counts the time since the city's previous championship in any sport · Season-Years counts the number of seasons across all teams in the market during the drought</p>`,
@@ -1388,6 +1399,10 @@ const DROUGHT_NOTES = {
 function renderDroughtsView() {
   const notes = document.getElementById('drought-notes');
   if (notes) notes.innerHTML = DROUGHT_NOTES[`${droughtMode}-${droughtScope}`] || '';
+  // The Years / Season-Years sort choice only applies to the By-City views
+  // (By-Team has no Season-Years column), so hide the toggle in team scope.
+  const sortToggle = document.getElementById('drought-sort-toggle');
+  if (sortToggle) sortToggle.style.display = droughtScope === 'city' ? 'flex' : 'none';
   if (droughtMode === 'active') {
     droughtScope === 'team' ? renderTeamActiveDroughts() : renderCityDroughts();
   } else {
@@ -1405,6 +1420,13 @@ document.querySelectorAll('[data-dscope]').forEach(btn => {
   btn.addEventListener('click', () => {
     droughtScope = btn.dataset.dscope;
     document.querySelectorAll('[data-dscope]').forEach(b => b.classList.toggle('active', b === btn));
+    renderDroughtsView();
+  });
+});
+document.querySelectorAll('[data-dsort]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    droughtSort = btn.dataset.dsort;
+    document.querySelectorAll('[data-dsort]').forEach(b => b.classList.toggle('active', b === btn));
     renderDroughtsView();
   });
 });
@@ -3200,7 +3222,11 @@ async function renderCityDroughts() {
     });
   }
 
-  records.sort((a, b) => (b.drought - a.drought) || (b.teamYears - a.teamYears));
+  // Sort by the user-selected column (Years = calendar drought, Season-Years =
+  // cumulative seasons of futility across the market), the other as tiebreak.
+  records.sort(droughtSort === 'seasonYears'
+    ? (a, b) => (b.teamYears - a.teamYears) || (b.drought - a.drought)
+    : (a, b) => (b.drought - a.drought) || (b.teamYears - a.teamYears));
 
   const rows = records.map((r, i) => {
     const sportsTag = r.sportsCount === 1
@@ -3293,8 +3319,8 @@ async function renderCityDroughts() {
         <th>City</th>
         <th>Previous Championship</th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
-        <th class="num drought-stack">Years</th>
-        <th class="num drought-stack">Season-Years</th>
+        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years</th>
+        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -3491,7 +3517,10 @@ async function renderDroughtBreakers() {
       records.push({ city, breaker: cur, prior, isFirst, droughtStart, calendarYears, seasonYears, teams });
     }
   }
-  records.sort((a, b) => (b.calendarYears - a.calendarYears) || (b.seasonYears - a.seasonYears));
+  // Sort by the user-selected column, the other as tiebreak.
+  records.sort(droughtSort === 'seasonYears'
+    ? (a, b) => (b.seasonYears - a.seasonYears) || (b.calendarYears - a.calendarYears)
+    : (a, b) => (b.calendarYears - a.calendarYears) || (b.seasonYears - a.seasonYears));
   const TOP_N = 50;
   const top = records.slice(0, TOP_N);
 
@@ -3544,8 +3573,8 @@ async function renderDroughtBreakers() {
         <th>City</th>
         <th>Drought-Ending Championship<br><span class="th-sub" style="margin-left:0">(previous championship in parens)</span></th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
-        <th class="num drought-stack">Years</th>
-        <th class="num drought-stack">Season-Years</th>
+        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years</th>
+        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>${footnote}
