@@ -2074,35 +2074,36 @@ function vibeRankCompare(a, b) {
 }
 
 function aggregateMetros(sportPayloads) {
-  // Z-score each team. The mean is per-snapshot (ratings are already
-  // near-zero-centered by design), but the std uses the sport's 5-year
-  // rolling-window value (built from history) when available. This keeps
-  // dominance comparable across eras: a +12 NBA team in 1984 (tight
-  // distribution) and a +12 NBA team in 2025 (wider distribution) both
-  // get z-scored against the long-run typical NBA spread, not against
-  // whatever this single year's std happens to be. Falls back to
-  // per-snapshot std if no rolling value is available (e.g. live data
-  // before history loads, or pre-1980 entries).
+  // Z-score each team against its sport's ALL-TIME distribution (one mean +
+  // std per sport, era-invariant), NOT a per-era window. This is deliberate:
+  // the per-sport GOAT tables (DUNCAN/NBA, GRIFFEY/MLB, ...) rank RAW ratings
+  // across eras with no era-normalization, so anchoring the cross-city metric
+  // to a fixed per-sport spread makes its within-sport ordering identical to
+  // each sport's own table - a face-validity requirement (the 2026 Knicks are
+  // the 3rd-best NBA champion by rating and must read that way here too).
+  // Because each sport's ratings are zero-mean by construction, the std then
+  // cancels against the champion anchor below, so a team's effective score
+  // reduces to 5.0 * (rating / that sport's average champion rating). We
+  // previously used a 5-year rolling std (era-relative dominance), but that
+  // disagreed with the sport tables and introduced a rolling-window boundary
+  // artifact at the present edge. (User direction 2026-06-25.) Falls back to
+  // the per-snapshot mean/std if no all-time stat is available (e.g. live data
+  // before history loads).
   for (const s of sportPayloads) {
     const ratings = s.teams.map(t => t.rating).filter(r => r != null);
     if (ratings.length < 2) continue;
-    const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-    const sampleSeasonYear = s.teams.find(t => t.seasonYear != null)
-                              ? s.teams.find(t => t.seasonYear != null).seasonYear
-                              : null;
-    let std;
-    if (rollingStdBySport && rollingStdBySport[s.label]
-        && sampleSeasonYear != null
-        && rollingStdBySport[s.label][sampleSeasonYear] != null) {
-      std = rollingStdBySport[s.label][sampleSeasonYear];
+    let mean, std;
+    if (sportStats && sportStats[s.label]) {
+      mean = sportStats[s.label].mean;
+      std  = sportStats[s.label].std;
     } else {
-      const variance = ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length;
-      std = Math.sqrt(variance);
+      mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+      std  = Math.sqrt(ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length);
     }
     if (std === 0) continue;
-    // sportZScale anchors each league's typical champion to a common
-    // cross-sport mean (see its declaration). Falls back to 1 (no change)
-    // until the lookup is built or for any sport missing a champion history.
+    // sportZScale anchors each league's typical champion to a common target
+    // (~5.0; see its declaration). Falls back to 1 (no change) until the
+    // lookup is built or for any sport missing a champion history.
     const zScale = (sportZScale && sportZScale[s.label]) || 1;
     for (const t of s.teams) {
       if (t.rating != null) t.zScore = ((t.rating - mean) / std) * zScale;
@@ -2206,68 +2207,55 @@ let cityData = null;  // { current: [metros], snapshotMetros: [{date, label, yea
 let csrSelected = null;    // Cross-Sport Rankings: selected snapshot index (string)
 let chSelectedCity = '';   // City History: selected city
 
-// Per-sport rolling-window std used as the z-score denominator. Computed
-// once from the full history; for each (sport, year) we average that
-// sport's per-year std across a 5-year centered window (year-2 .. year+2).
-// This smooths over years where a sport had unusually high or low rating
-// variance (e.g. 2021 NHL ran wider than typical post-COVID; 1996 NFL was
-// tighter than usual). Using per-year-only std artificially inflates or
-// deflates dominance signals; the rolling window keeps the cross-era
-// comparison honest without flattening real era differences.
-let rollingStdBySport = null;  // {sport: {year: std}}
+// Per-sport ALL-TIME mean + std used as the z-score normalizer, computed once
+// over the whole history (one fixed pair per sport, era-invariant). Using an
+// era-invariant spread - rather than a per-year or rolling-window std - makes
+// the cross-city metric's within-sport ordering identical to each sport's own
+// GOAT table, which ranks raw ratings across eras with no era-normalization.
+// (We previously used a 5-year rolling std for era-relative dominance, but it
+// disagreed with the sport tables and had a rolling-window boundary artifact
+// at the present edge.) Ratings are deduped to one per (sport, team, year) so
+// carryover across snapshots doesn't over-weight some seasons.
+let sportStats = null;  // {sport: {mean, std}}
 
 // Per-sport z-axis scale that anchors every league's TYPICAL CHAMPION to a
-// common target (~5.0). Without it the metric is biased: champion z averages
-// ~2.0 in the NFL but ~1.5 in MLB / MLS, purely because high-parity sports let
-// their best team stand further above a tightly-packed field. Since Vibe is a
-// max-over-K Stouffer of the TOP positive z's, that bias lands exactly in the
-// tail the metric exists to measure, so a Super Bowl structurally out-credited
-// a World Series by ~0.5 z. Multiplying a sport's whole z-axis by a constant
-// keeps its mean at 0 and only rescales spread, so this equalizes the typical
-// title across sports WITHOUT flattening within-sport margin (a blowout
-// champion still out-reads a squeaker by the same ratio). The 5.0 anchor (vs
-// the raw ~1.68 cross-sport mean) is a rounder headline number and adds a bit
-// of spread; being one global constant it leaves all rankings unchanged.
-// Computed live from history so it self-maintains as champions accrue.
+// common target (~5.0). Without it the cross-sport comparison is unfair: a
+// sport's champions sit a different number of std above its own mean than
+// another's (high-parity sports crown teams that stand further above a
+// tightly-packed field), so a Super Bowl would out-credit a World Series for
+// structural reasons. Multiplying a sport's whole z-axis by a constant keeps
+// its mean at 0 and only rescales spread, so this equalizes the typical title
+// across sports WITHOUT flattening within-sport margin (a blowout champion
+// still out-reads a squeaker by the same ratio). Combined with the all-time
+// per-sport std above (whose denominator cancels), a team's effective score
+// reduces to 5.0 * (rating / that sport's average champion rating). Computed
+// live from history so it self-maintains as champions accrue.
 // (User direction 2026-06-25.)
 let sportZScale = null;  // {sport: factor}
 
-function buildRollingStdLookup(history) {
-  // Bucket ratings by (sport, year) across the whole history.
-  const byKey = {};
+function buildSportStats(history) {
+  // Dedupe to one rating per (sport, team, year) - a team carries the same
+  // last-completed-season rating across every snapshot in a year, so pooling
+  // raw snapshot rows would over-weight seasons that appear at more key dates.
+  const uniq = {};  // `sport__team__year` -> rating
   for (const snap of history.snapshots || []) {
     for (const t of snap.teams) {
-      const k = `${t.sport}__${snap.year}`;
-      if (!byKey[k]) byKey[k] = [];
-      byKey[k].push(t.rating);
+      uniq[`${t.sport}__${t.team}__${snap.year}`] = t.rating;
     }
   }
-  // Per-(sport, year) std
-  const yearStd = {};  // sport -> year -> std
-  for (const [k, ratings] of Object.entries(byKey)) {
+  const bySport = {};  // sport -> [ratings]
+  for (const [k, rating] of Object.entries(uniq)) {
+    const sport = k.slice(0, k.indexOf('__'));
+    (bySport[sport] = bySport[sport] || []).push(rating);
+  }
+  const stats = {};
+  for (const [sport, ratings] of Object.entries(bySport)) {
     if (ratings.length < 2) continue;
-    const mn = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-    const v  = ratings.reduce((a, b) => a + (b - mn) ** 2, 0) / ratings.length;
-    const [sport, yearStr] = k.split('__');
-    if (!yearStd[sport]) yearStd[sport] = {};
-    yearStd[sport][parseInt(yearStr, 10)] = Math.sqrt(v);
+    const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    const std  = Math.sqrt(ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length);
+    stats[sport] = { mean, std };
   }
-  // 5-year centered rolling average (year-2 .. year+2)
-  const rolling = {};
-  for (const [sport, years] of Object.entries(yearStd)) {
-    rolling[sport] = {};
-    for (const yearStr of Object.keys(years)) {
-      const year = parseInt(yearStr, 10);
-      const w = [];
-      for (let y = year - 2; y <= year + 2; y++) {
-        if (years[y] != null) w.push(years[y]);
-      }
-      rolling[sport][year] = w.length > 0
-        ? w.reduce((a, b) => a + b, 0) / w.length
-        : years[year];
-    }
-  }
-  return rolling;
+  return stats;
 }
 
 // Sports that crown a champion at each snapshot kind (NBA + NHL share the
@@ -2278,28 +2266,25 @@ const CHAMP_KIND_SPORTS = {
 };
 
 // Build the per-sport z-axis scale (see sportZScale comment above). For each
-// sport, take the mean z of its CHAMPIONS across history (same per-snapshot
-// mean + rolling std the portal displays), then scale so every sport's typical
-// champion reads at the global champion mean. The global anchor is the
-// UNWEIGHTED mean of the per-sport champion means, so sports with more recorded
-// champions don't drag the anchor.
-function buildSportZScale(history, rollingStd) {
+// sport, take the mean z of its CHAMPIONS across history (z against the sport's
+// ALL-TIME mean + std), then scale so every sport's typical champion reads at a
+// common target. Each champion-season is counted once.
+function buildSportZScale(history, stats) {
   const champZ = {};  // sport -> [z, ...]
+  const seen = {};    // sport -> Set(`team__year`), one z per champion-season
   for (const snap of history.snapshots || []) {
     const crown = CHAMP_KIND_SPORTS[snap.kind];
     if (!crown) continue;
-    const bySport = {};
-    for (const t of snap.teams) (bySport[t.sport] = bySport[t.sport] || []).push(t);
     for (const sp of crown) {
-      const ts = bySport[sp];
-      if (!ts || ts.length < 2) continue;
-      const ratings = ts.map(t => t.rating);
-      const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
-      const std = (rollingStd[sp] && rollingStd[sp][snap.year])
-        || Math.sqrt(ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length);
-      if (!std) continue;
-      for (const c of ts) {
-        if (c.finalsStatus === 2) (champZ[sp] = champZ[sp] || []).push((c.rating - mean) / std);
+      const st = stats[sp];
+      if (!st || !st.std) continue;
+      seen[sp] = seen[sp] || new Set();
+      for (const c of snap.teams) {
+        if (c.sport !== sp || c.finalsStatus !== 2) continue;
+        const key = `${c.team}__${snap.year}`;
+        if (seen[sp].has(key)) continue;
+        seen[sp].add(key);
+        (champZ[sp] = champZ[sp] || []).push((c.rating - st.mean) / st.std);
       }
     }
   }
@@ -2332,11 +2317,11 @@ async function ensureCityData() {
     const sportPayloads = results.filter(r => !r.__history);
     const history = results.find(r => r.__history).__history;
 
-    // Build rolling-std lookup, then the per-sport champion-anchor scale,
-    // from the full history before any aggregation. Order matters: the scale
-    // is calibrated on champion z's that use the rolling std.
-    rollingStdBySport = buildRollingStdLookup(history);
-    sportZScale = buildSportZScale(history, rollingStdBySport);
+    // Build all-time per-sport stats, then the per-sport champion-anchor scale,
+    // from the full history before any aggregation. Order matters: the scale is
+    // calibrated on champion z's that use those stats.
+    sportStats = buildSportStats(history);
+    sportZScale = buildSportZScale(history, sportStats);
 
     // Current snapshot (live)
     const currentMetros = aggregateMetros(sportPayloads);
