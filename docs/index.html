@@ -188,10 +188,12 @@
     width: 92px;
     min-width: 92px;
   }
-  /* The column the table is currently sorted by (City Droughts): keep the
-     full label, just tint it and let the ↓ arrow mark the active sort. */
-  .droughts-table th.drought-stack.sorted { color: #1a6b8a; }
-  .droughts-table th.drought-stack .sort-arrow { color: #1a6b8a; }
+  /* The column the table is currently sorted by (City Droughts): the header
+     sits on a teal (#1a6b8a) background with pink text, so the active column
+     goes WHITE to stand out (teal-on-teal would be invisible), keeping its
+     full label plus a ↓ arrow. */
+  .droughts-table th.drought-stack.sorted,
+  .droughts-table th.drought-stack .sort-arrow { color: #fff; }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
   /* Active / Drought-Breakers mode toggle (City Droughts tab). */
   .drought-toggle {
