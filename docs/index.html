@@ -158,8 +158,9 @@
   .linked:hover { text-decoration: underline; }
   .city-cell.linked, .year-cell.linked { color: #1a6b8a; }
 
-  /* Vibe = city's championships summed in full + its best non-champion -
-     the concentrated upside signal. Gold to feel a little flashy / fun. */
+  /* Vibe = tiered sum of a city's title teams (champion full, runner-up half,
+     other strong teams a fifth) / market-size - the upside signal. Gold to
+     feel a little flashy / fun. */
   .vibe-cell {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -723,15 +724,15 @@
 <main id="main">
   <div id="current-summary-view" class="view active"></div>
   <div id="cross-sport-rankings-view" class="view tab">
-    <p class="data-note">VIBE sums a city's championships in full, then adds its single best non-title team · Rankings shown at each championship moment, 1980-present (WNBA / MLS contribute from 1997 / 1996 on)</p>
+    <p class="data-note">VIBE weights titles fully, runners-up half, other strong teams a fifth, then adjusts for market size · Rankings shown at each championship moment, 1980-present (WNBA / MLS contribute from 1997 / 1996 on)</p>
     <div id="cross-sport-rankings-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-history-view" class="view tab">
-    <p class="data-note">VIBE sums a city's championships in full, then adds its single best non-title team · One city over time, with 👑 / 🥈 markers flagging championship moments</p>
+    <p class="data-note">VIBE weights titles fully, runners-up half, other strong teams a fifth, then adjusts for market size · One city over time, with 👑 / 🥈 markers flagging championship moments</p>
     <div id="city-history-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="goat-table-view" class="view tab">
-    <p class="data-note">VIBE sums a city's championships in full, then adds its single best non-title team · Top 50 city-year peaks across 1980-present</p>
+    <p class="data-note">VIBE weights titles fully, runners-up half, other strong teams a fifth, then adjusts for market size · Top 50 city-year peaks across 1980-present</p>
     <div id="goat-table-content"><p class="loading">Loading...</p></div>
   </div>
   <div id="city-droughts-view" class="view tab">
@@ -2056,9 +2057,10 @@ const CITY_SPORTS = [
 // of a same-sport pair (Yankees + Mets, Cubs + White Sox) are eligible, since
 // the Vibe formula keys off championships, not a per-sport average.
 //
-// Vibe = sum of champion effectiveZ (in full) + the single best non-champion.
-//        Rewards titles additively and gives one nod to the best team that
-//        fell short. Always >= 0. See finalizeMetro for the full rationale.
+// Vibe = [ SUM(champion z) + 0.5*SUM(runner-up z) + 0.2*SUM(other z>0) ]
+//        / nTeams^0.3. Titles dominate, the rest of the year counts at a
+//        discount, and a market-size divisor rewards efficiency. Always >= 0.
+//        See finalizeMetro for the full rationale.
 
 // City sort: Vibe desc primary, then tiebreakers for cities tied at the
 // bottom (most commonly tied at Vibe = 0 with no positive contributors).
@@ -2125,20 +2127,14 @@ function aggregateMetros(sportPayloads) {
       const fs = t.finalsStatus != null ? t.finalsStatus
               : (t.finals_status != null ? t.finals_status : 0);
       if (!metros[metro]) metros[metro] = { name: metro, teams: [] };
-      // Championship weight: champions get full credit, runners-up 90%,
-      // everyone else 75%. Vibe is about how much the city's teams
-      // ACTUALLY converted their season, not just how strong they were on
-      // paper, so a great-regular-season-but-first-round-out team
-      // (2001 A's, +2.49 raw z) reads more honestly at +1.87. User
-      // direction 2026-06-07 after the 2001 Bay Area entry surfaced too
-      // high on A's regular-season strength alone.
-      const champWeight = fs === 2 ? 1.0 : fs === 1 ? 0.9 : 0.75;
+      // zScore is the anchored per-team score (5.0 = a typical champion of its
+      // sport). Vibe's outcome tiering (champion / runner-up / other) is applied
+      // in finalizeMetro, so we no longer pre-weight here.
       metros[metro].teams.push({
         sport:        s.label,
         team:         teamName,
         rating:       t.rating,
-        zScore:       t.zScore,             // raw z, preserved for diagnostics
-        effectiveZ:   t.zScore * champWeight,  // what feeds Vibe + chip display
+        zScore:       t.zScore,
         finalsStatus: fs,
         seasonYear:   t.seasonYear,
       });
@@ -2149,55 +2145,54 @@ function aggregateMetros(sportPayloads) {
 }
 
 // Compute a metro's Vibe + supporting fields from its .teams (each team must
-// already carry zScore / effectiveZ). Extracted from aggregateMetros so the
+// already carry an anchored zScore). Extracted from aggregateMetros so the
 // league filter can re-finalize a metro after dropping excluded-league teams.
 function finalizeMetro(m) {
     m.nTeams  = m.teams.length;
     m.nSports = new Set(m.teams.map(t => t.sport)).size;
-    // Vibe (rebuilt 2026-06-25): CHAMPIONSHIPS COUNT IN FULL, plus the single
-    // best non-champion. A GOAT city-year is defined by titles, so every
-    // champion's effectiveZ is summed with no dilution. The old metric divided
-    // the combined score by sqrt(k) (a max-over-K Stouffer), which perversely
-    // punished the cities that won MORE: a lone all-time team (the 1998
-    // Yankees, k=1) outranked genuine double-championship years like 1987 NY
-    // (Mets + Giants) or 2005 Boston (Red Sox + Patriots) whose two titles got
-    // sqrt(2)-diluted. Now those titles add straight up.
+    // Vibe (2026-06-25). Outcome-tiered sum of the city's positive anchored
+    // z's, then a market-size correction:
     //
-    // Exactly ONE supporting team is added on top - the best non-champion,
-    // almost always a runner-up or a dominant team that fell short (the 18-1
-    // 2007 Patriots in Boston's 2008 line). That keeps the "they also reached
-    // the final" signal WITHOUT letting a deep big market pad the score with a
-    // pile of mediocre also-rans (the failure mode of summing or Stouffer-ing
-    // the whole supporting cast: NY's depth alone would lift a single-title
-    // year above real double-title years). User direction 2026-06-25, option B.
+    //   raw = SUM(champion z) + 0.5 * SUM(runner-up z) + 0.2 * SUM(other z>0)
+    //   Vibe = raw / nTeams^0.3
     //
-    // Uses effectiveZ (championship-weighted). Always >= 0 (a city with no
-    // positive team gets Vibe = 0).
-    const champs = m.teams
-      .filter(t => t.finalsStatus === 2 && t.effectiveZ > 0)
-      .sort((a, b) => b.effectiveZ - a.effectiveZ);
-    const champSum = champs.reduce((s, t) => s + t.effectiveZ, 0);
-    const bestNonChamp = m.teams
-      .filter(t => t.finalsStatus !== 2 && t.effectiveZ > 0)
-      .sort((a, b) => b.effectiveZ - a.effectiveZ)[0] || null;
-    m.vibeZ = champSum + (bestNonChamp ? bestNonChamp.effectiveZ : 0);
-    // The team-seasons credited toward Vibe (every champion + the one
-    // supporting team). Used by the GOAT table to dedupe consecutive years
-    // that tell the same championship story via carryover (1989 49ers / 1989
-    // A's still contributing at the 1990 NBA Finals because no new NFL / MLB
-    // season has completed yet).
-    m.vibeContributors = bestNonChamp ? champs.concat([bestNonChamp]) : champs.slice();
-    m.nPositive = m.teams.filter(t => t.effectiveZ > 0).length;
-    // Sum of below-average team z's. Used as a tiebreaker for cities
-    // tied at Vibe = 0 (or any Vibe tie) - more drag = worse rank, so
-    // Washington's all-bad portfolio reads as worse than a single
-    // marginally-bad team. Uses raw zScore not effectiveZ because the
-    // championship discount is uniform for non-finalists (75%) so it
-    // doesn't change relative ordering.
+    // The tiers keep TITLES dominant (a champion reads ~5.0, full weight) while
+    // still rewarding the rest of a great year at a discount - a runner-up at
+    // half (the 18-1 2007 Patriots in Boston's 2008 line), and every other
+    // above-average team at a fifth, so depth nudges the score without
+    // non-contenders dictating it. This replaced an earlier max-over-K Stouffer
+    // (which punished cities that won MORE, sqrt(k)-diluting multiple titles)
+    // and a champions + single-best-non-champ form (too blunt on the cast).
+    //
+    // The nTeams^0.3 divisor is an efficiency correction: a sum rewards a
+    // sprawling market just for fielding more teams (more shots at a title +
+    // more depth). Dividing by team count ^0.3 means a 10-team market is cut
+    // ~in half vs a 1-team market, so Pittsburgh going 2-for-3 outranks a city
+    // that went 4-for-9. No denominator floor (a 1-team city that wins its only
+    // title is a legitimately perfect year and earns its spot). User direction
+    // 2026-06-25. Always >= 0 (a city with no positive team gets Vibe = 0).
+    let raw = 0;
+    const contributors = [];  // champions + runners-up credited (for dedupe sig)
+    for (const t of m.teams) {
+      if (t.zScore <= 0) continue;
+      if (t.finalsStatus === 2)      { raw += t.zScore;       contributors.push(t); }
+      else if (t.finalsStatus === 1) { raw += 0.5 * t.zScore; contributors.push(t); }
+      else                           { raw += 0.2 * t.zScore; }
+    }
+    m.vibeZ = m.nTeams > 0 ? raw / Math.pow(m.nTeams, 0.3) : raw;
+    // The team-seasons that carry the city's title story (champions + runners-
+    // up). Used by the GOAT table to dedupe consecutive years that tell the
+    // same story via carryover (1989 49ers / 1989 A's still contributing at the
+    // 1990 NBA Finals because no new NFL / MLB season has completed yet).
+    m.vibeContributors = contributors.sort((a, b) => b.zScore - a.zScore);
+    m.nPositive = m.teams.filter(t => t.zScore > 0).length;
+    // Sum of below-average team z's. Tiebreaker for cities tied at Vibe = 0 (or
+    // any Vibe tie) - more drag = worse rank, so an all-bad portfolio reads as
+    // worse than a single marginally-bad team.
     m.sumNegZ = m.teams
       .filter(t => t.zScore < 0)
       .reduce((s, t) => s + t.zScore, 0);
-    m.teams.sort((a, b) => b.effectiveZ - a.effectiveZ);
+    m.teams.sort((a, b) => b.zScore - a.zScore);
     return m;
 }
 
@@ -2419,9 +2414,11 @@ function teamChipHtml(t) {
   let extra = '';
   if (t.finalsStatus === 2)      { classes.push('win');    extra = ' 👑'; }
   else if (t.finalsStatus === 1) { classes.push('runner'); extra = ' 🥈'; }
-  // Show the championship-weighted z (what actually fed Vibe), not raw.
-  // The 👑 / 🥈 / no-marker badges signal the weight tier (100% / 90% / 75%).
-  const z = t.effectiveZ.toFixed(2);
+  // Show the anchored z - the team's standalone strength in champion-units
+  // (5.0 = a typical champion of its sport). Vibe's outcome tiers (champion
+  // full / runner-up half / other a fifth) are applied at the city level, so
+  // the chip shows intrinsic strength; the 👑 / 🥈 badges signal the tier.
+  const z = t.zScore.toFixed(2);
   const shortName = TEAM_SHORT_NAME[t.team] || t.team;
   const yr = t.seasonYear != null
     ? `<span class="yr">${("'" + String(t.seasonYear).slice(-2))}</span> `
