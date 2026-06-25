@@ -188,11 +188,10 @@
     width: 92px;
     min-width: 92px;
   }
-  /* The column the table is currently sorted by (City Droughts). */
-  .droughts-table th.drought-stack.sorted {
-    color: #1a6b8a;
-    text-decoration: underline;
-  }
+  /* The column the table is currently sorted by (City Droughts): keep the
+     full label, just tint it and let the ↓ arrow mark the active sort. */
+  .droughts-table th.drought-stack.sorted { color: #1a6b8a; }
+  .droughts-table th.drought-stack .sort-arrow { color: #1a6b8a; }
   .droughts-table td:nth-child(4) { width: auto; }  /* Teams column flexes */
   /* Active / Drought-Breakers mode toggle (City Droughts tab). */
   .drought-toggle {
@@ -749,12 +748,12 @@
       <button class="active" data-dscope="city" role="tab">By City</button>
       <button data-dscope="team" role="tab">By Team</button>
     </div>
-    <div class="drought-toggle" id="drought-sort-toggle" role="tablist" style="margin-bottom:10px">
+    <div id="drought-notes"></div>
+    <div class="drought-toggle" id="drought-sort-toggle" role="tablist" style="margin-bottom:8px; justify-content:flex-end">
       <span class="league-filter-label" style="align-self:center">Sort by</span>
       <button class="active" data-dsort="years" role="tab">Years</button>
       <button data-dsort="seasonYears" role="tab">Season-Years</button>
     </div>
-    <div id="drought-notes"></div>
     <div id="city-droughts-content"><p class="loading">Loading...</p></div>
     <p class="data-note" style="color:#c62828; margin-top:12px">Note: the 2004-05 NHL season was cancelled in its entirety due to a lockout. No games were played, no division titles, no Presidents' Trophy, and no Stanley Cup were awarded. That's the source of any +1 gap shown for NHL droughts.</p>
   </div>
@@ -3319,8 +3318,8 @@ async function renderCityDroughts() {
         <th>City</th>
         <th>Previous Championship</th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
-        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years</th>
-        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years</th>
+        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years${droughtSort === 'years' ? ' <span class="sort-arrow">↓</span>' : ''}</th>
+        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years${droughtSort === 'seasonYears' ? ' <span class="sort-arrow">↓</span>' : ''}</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -3573,8 +3572,8 @@ async function renderDroughtBreakers() {
         <th>City</th>
         <th>Drought-Ending Championship<br><span class="th-sub" style="margin-left:0">(previous championship in parens)</span></th>
         <th>Teams <span class="th-sub">(seasons of futility in the drought)</span></th>
-        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years</th>
-        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years</th>
+        <th class="num drought-stack${droughtSort === 'years' ? ' sorted' : ''}">Years${droughtSort === 'years' ? ' <span class="sort-arrow">↓</span>' : ''}</th>
+        <th class="num drought-stack${droughtSort === 'seasonYears' ? ' sorted' : ''}">Season-Years${droughtSort === 'seasonYears' ? ' <span class="sort-arrow">↓</span>' : ''}</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>${footnote}
