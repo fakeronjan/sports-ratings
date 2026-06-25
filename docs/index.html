@@ -2103,8 +2103,12 @@ function aggregateMetros(sportPayloads) {
       std = Math.sqrt(variance);
     }
     if (std === 0) continue;
+    // sportZScale anchors each league's typical champion to a common
+    // cross-sport mean (see its declaration). Falls back to 1 (no change)
+    // until the lookup is built or for any sport missing a champion history.
+    const zScale = (sportZScale && sportZScale[s.label]) || 1;
     for (const t of s.teams) {
-      if (t.rating != null) t.zScore = (t.rating - mean) / std;
+      if (t.rating != null) t.zScore = ((t.rating - mean) / std) * zScale;
     }
   }
 
@@ -2222,6 +2226,20 @@ let chSelectedCity = '';   // City History: selected city
 // comparison honest without flattening real era differences.
 let rollingStdBySport = null;  // {sport: {year: std}}
 
+// Per-sport z-axis scale that anchors every league's TYPICAL CHAMPION to a
+// common cross-sport champion mean. Without it the metric is biased: champion
+// z averages ~2.0 in the NFL but ~1.5 in MLB / MLS, purely because high-parity
+// sports let their best team stand further above a tightly-packed field. Since
+// Vibe is a max-over-K Stouffer of the TOP positive z's, that bias lands
+// exactly in the tail the metric exists to measure, so a Super Bowl
+// structurally out-credited a World Series by ~0.5 z. Multiplying a sport's
+// whole z-axis by a constant keeps its mean at 0 and only rescales spread, so
+// this equalizes the typical title across sports WITHOUT flattening
+// within-sport margin (a blowout champion still out-reads a squeaker by the
+// same ratio). Computed live from history so it self-maintains as champions
+// accrue. (User direction 2026-06-25.)
+let sportZScale = null;  // {sport: factor}
+
 function buildRollingStdLookup(history) {
   // Bucket ratings by (sport, year) across the whole history.
   const byKey = {};
@@ -2260,6 +2278,53 @@ function buildRollingStdLookup(history) {
   return rolling;
 }
 
+// Sports that crown a champion at each snapshot kind (NBA + NHL share the
+// combined June snapshot). Mirrors the build script's key-date kinds.
+const CHAMP_KIND_SPORTS = {
+  NBA: ['NBA'], NHL: ['NHL'], 'nba+nhl': ['NBA', 'NHL'],
+  NFL: ['NFL'], MLB: ['MLB'], WNBA: ['WNBA'], MLS: ['MLS'],
+};
+
+// Build the per-sport z-axis scale (see sportZScale comment above). For each
+// sport, take the mean z of its CHAMPIONS across history (same per-snapshot
+// mean + rolling std the portal displays), then scale so every sport's typical
+// champion reads at the global champion mean. The global anchor is the
+// UNWEIGHTED mean of the per-sport champion means, so sports with more recorded
+// champions don't drag the anchor.
+function buildSportZScale(history, rollingStd) {
+  const champZ = {};  // sport -> [z, ...]
+  for (const snap of history.snapshots || []) {
+    const crown = CHAMP_KIND_SPORTS[snap.kind];
+    if (!crown) continue;
+    const bySport = {};
+    for (const t of snap.teams) (bySport[t.sport] = bySport[t.sport] || []).push(t);
+    for (const sp of crown) {
+      const ts = bySport[sp];
+      if (!ts || ts.length < 2) continue;
+      const ratings = ts.map(t => t.rating);
+      const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+      const std = (rollingStd[sp] && rollingStd[sp][snap.year])
+        || Math.sqrt(ratings.reduce((a, b) => a + (b - mean) ** 2, 0) / ratings.length);
+      if (!std) continue;
+      for (const c of ts) {
+        if (c.finalsStatus === 2) (champZ[sp] = champZ[sp] || []).push((c.rating - mean) / std);
+      }
+    }
+  }
+  const sportChampMean = {};
+  for (const sp of Object.keys(champZ)) {
+    sportChampMean[sp] = champZ[sp].reduce((a, b) => a + b, 0) / champZ[sp].length;
+  }
+  const means = Object.values(sportChampMean);
+  if (!means.length) return {};
+  const globalChampMean = means.reduce((a, b) => a + b, 0) / means.length;
+  const scale = {};
+  for (const sp of Object.keys(sportChampMean)) {
+    scale[sp] = sportChampMean[sp] > 0 ? globalChampMean / sportChampMean[sp] : 1;
+  }
+  return scale;
+}
+
 async function ensureCityData() {
   if (cityData) return cityData;
   try {
@@ -2271,8 +2336,11 @@ async function ensureCityData() {
     const sportPayloads = results.filter(r => !r.__history);
     const history = results.find(r => r.__history).__history;
 
-    // Build rolling-std lookup from the full history before any aggregation.
+    // Build rolling-std lookup, then the per-sport champion-anchor scale,
+    // from the full history before any aggregation. Order matters: the scale
+    // is calibrated on champion z's that use the rolling std.
     rollingStdBySport = buildRollingStdLookup(history);
+    sportZScale = buildSportZScale(history, rollingStdBySport);
 
     // Current snapshot (live)
     const currentMetros = aggregateMetros(sportPayloads);
