@@ -3355,11 +3355,13 @@ async function renderDroughtBreakers() {
   const tenuresByCity = {};
   const cityTitles = {};   // city -> [{year, team, sport, note?}]
   const seenTitle = {};    // dedupe finalsStatus=2 carryover across snapshots
+  const latestSeasonBySport = {};  // sport -> most recent completed season-year in view
   for (const snap of data.snapshotMetros) {
     for (const m of snap.metros) {
       for (const t of m.teams) {
         const city = m.name, sport = t.sport, team = t.team, sy = t.seasonYear;
         if (sy == null) continue;
+        if (!latestSeasonBySport[sport] || sy > latestSeasonBySport[sport]) latestSeasonBySport[sport] = sy;
         if (!tenuresByCity[city]) tenuresByCity[city] = {};
         if (!tenuresByCity[city][sport]) tenuresByCity[city][sport] = {};
         const cur = tenuresByCity[city][sport][team];
@@ -3477,7 +3479,12 @@ async function renderDroughtBreakers() {
         // last season predates the breaking title), NOT whether they exist today.
         // So the 2016 Cavs row keeps the Indians solid (active in 2016, only
         // renamed Guardians in 2022) while fading the Rockers (folded 2003).
-        const departed = ten.last < endTitle.year;
+        // Guard against the current-season boundary: a team that has played its
+        // sport's most recent completed season is still here, even if the
+        // breaking title is a year newer (a 2026 NBA title vs MLB / NFL teams
+        // whose 2026 season has not finished yet - they are NOT departed).
+        const departed = ten.last < endTitle.year
+          && ten.last < latestSeasonBySport[sport];
         out.push({ team, sport, ranges, count: inDrought.length, isBreaker, departed });
       }
     }
