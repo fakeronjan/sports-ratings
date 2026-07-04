@@ -1097,16 +1097,14 @@ const TENNIS_COLS = [
   { label: 'Rating', cls: 'rating' },
 ];
 
-// Tennis dates are tournament-granular (every match carries the event's start
-// date), so we show year-month only (YYYY-MM, matching the rest of the fleet) -
-// no false day precision. A slam runs ~2 weeks, so for slam snapshots we add 14d
-// and the label reads the month the event finished in (Roland Garros -> June, not
-// May). EOY/Today are exact.
-function _fmtWindowMonth(iso, type) {
+// Full written date ("Jun 27, 2026"). The live feed (2025+) dates every match
+// to its real day, so day precision is meaningful now - it tells you exactly how
+// current the weekly-refreshed data is. (The old month-only display was a relic
+// of Sackmann's tournament-start dating, which no longer applies to the feed.)
+function _fmtFullDate(iso) {
   if (!iso) return '';
   const d = new Date(`${iso}T00:00:00Z`);
-  if (type === 'slam') d.setUTCDate(d.getUTCDate() + 14);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${_MON_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
 async function loadTennisCurrent(gender) {
@@ -1146,8 +1144,8 @@ async function loadTennisCurrent(gender) {
       ? `Through ${TENNIS_SLAM_NAME[snap.code] || (snap.label || '').replace(/^After\s+/, '')} ${snap.year}`
       : snap.type === 'eoy'
         ? `End of ${snap.year}`
-        : `Through ${_fmtMonthName(snap.window_end)}`,
-    updated: `Last matches added: ${_fmtWindowMonth(snap.date, snap.type)}`,
+        : `Through ${_fmtFullDate(snap.window_end)}`,
+    updated: `Last matches added: ${(snap.date || '').slice(0, 10)}`,
   };
 }
 
