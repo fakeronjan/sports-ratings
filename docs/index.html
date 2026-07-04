@@ -1097,14 +1097,14 @@ const TENNIS_COLS = [
   { label: 'Rating', cls: 'rating' },
 ];
 
-// Full written date ("Jun 27, 2026"). The live feed (2025+) dates every match
-// to its real day, so day precision is meaningful now - it tells you exactly how
-// current the weekly-refreshed data is. (The old month-only display was a relic
-// of Sackmann's tournament-start dating, which no longer applies to the feed.)
+// Full numeric date ("6/27/2026", M/D/YYYY - the fleet's date style). The live
+// feed (2025+) dates every match to its real day, so day precision is meaningful
+// now - it tells you exactly how current the weekly-refreshed data is. (The old
+// month-only display was a relic of Sackmann's tournament-start dating.)
 function _fmtFullDate(iso) {
   if (!iso) return '';
   const d = new Date(`${iso}T00:00:00Z`);
-  return `${_MON_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
 }
 
 async function loadTennisCurrent(gender) {
