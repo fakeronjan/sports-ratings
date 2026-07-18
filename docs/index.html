@@ -1099,7 +1099,7 @@ const TENNIS_COLS = [
 
 // Full numeric date ("6/27/2026", M/D/YYYY - the fleet's date style). The live
 // feed (2025+) dates every match to its real day, so day precision is meaningful
-// now - it tells you exactly how current the weekly-refreshed data is. (The old
+// now - it tells you exactly how current the daily-refreshed data is. (The old
 // month-only display was a relic of Sackmann's tournament-start dating.)
 function _fmtFullDate(iso) {
   if (!iso) return '';
@@ -1180,16 +1180,16 @@ function loadLAVINGoat(gender) {
 // Sections
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Refresh-cadence label per source. Auto-cron sites refresh daily; Tennis
-// auto-refreshes weekly (its TennisCourtLog data feed updates weekly);
-// everything else needs an explicit local run (Wikipedia scrapers for the
-// three intl sites; manual LAVIN rebuild after each Challenge season).
+// Refresh-cadence label per source. Auto-cron sites (including Tennis)
+// refresh daily; everything else needs an explicit local run (Wikipedia
+// scrapers for the three intl sites; manual LAVIN rebuild after each
+// Challenge season).
 const CADENCE_BY_SLUG = {
   nba: 'daily', wnba: 'daily', nfl: 'daily', ncaafb: 'daily',
   eurosoccer: 'daily', mls: 'daily', intlsoccer: 'daily',
   mlb: 'daily', nhl: 'daily',
   intlbasketball: 'daily', intlbaseball: 'daily', intlhockey: 'daily',
-  tennis: 'weekly', thechallenge: 'manual',
+  tennis: 'daily', thechallenge: 'manual',
 };
 
 const SECTIONS = [
