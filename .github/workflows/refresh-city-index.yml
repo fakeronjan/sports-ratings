@@ -12,7 +12,7 @@ name: Refresh City Index
 
 on:
   schedule:
-    - cron: '13 23 * * *'
+    - cron: '13 2 * * *'  # backstop, 02:13 UTC. The droplet (157.245.209.249) dispatches this at 23:13 UTC; GitHub's own cron starts hours late, see /opt/fleet-dispatch there
   workflow_dispatch:
 
 permissions:
